@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Evalyn Reader</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌳</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Andika:ital,wght@0,400;0,700;1,400&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700&family=Lexend:wght@300..700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --band: #F06FA8;
+  --band-ink: #3A0E21;
+
+  --bg: #FBFAF7;
+  --ink: #1E2127;
+  --ink-soft: #6E7480;
+  --hover: rgba(30,33,39,.075);
+  --hover-edge: rgba(30,33,39,.10);
+  --hover-shadow: rgba(30,33,39,.10);
+  --chrome: rgba(251,250,247,.94);
+  --rule: rgba(30,33,39,.12);
+
+  --size: 56px;
+  --measure: 26ch;
+  --spacing: .14em;
+  --leading: 1.85;
+  --rail: 46px;
+  --panel: 268px;
+
+  box-sizing: border-box;
+}
+
+:root[data-surface="evening"]{
+  --bg: #171B21;
+  --ink: #E9EAEC;
+  --ink-soft: #8A919C;
+  --hover: rgba(255,255,255,.10);
+  --hover-edge: rgba(255,255,255,.14);
+  --hover-shadow: rgba(0,0,0,.45);
+  --chrome: rgba(23,27,33,.96);
+  --rule: rgba(255,255,255,.14);
+}
+
+*,*::before,*::after{ box-sizing: inherit; }
+
+html{ height: 100%; }
+body{
+  height: 100%;
+  height: 100dvh;
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  touch-action: manipulation;
+  transition: background-color .35s ease, color .35s ease;
+}
+
+/* ---------- stage ---------- */
+
+#stage{
+  height: 100%;
+  display: flex;
+  align-items: center;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: clamp(20px,5vw,72px) clamp(16px,5vw,72px) 60px clamp(16px,6vw,96px);
+  padding-top: calc(clamp(20px,5vw,72px) + env(safe-area-inset-top,0px));
+  padding-right: calc(var(--rail) + clamp(12px,4vw,48px));
+  transition: padding-right .32s cubic-bezier(.3,.8,.3,1);
+}
+body.open #stage{ padding-right: calc(var(--panel) + clamp(12px,4vw,48px)); }
+
+#text{
+  font-family: var(--face,"Andika"), Georgia, serif;
+  font-size: min(var(--size), 11vw);
+  line-height: var(--leading);
+  letter-spacing: .012em;
+  word-spacing: var(--spacing);
+  max-width: min(var(--measure), 100%);
+  width: 100%;
+  margin: auto 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+#text p{ margin: 0 0 .85em; }
+#text p:last-child{ margin-bottom: 0; }
+
+/* ---------- words ---------- */
+
+.w{
+  display: inline-block;
+  max-width: 100%;
+  border-radius: .26em;
+  padding: .02em .1em;
+  margin: 0 -.06em;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  transition: background-color .2s ease, color .2s ease, opacity .28s ease,
+              filter .28s ease, box-shadow .22s ease,
+              transform .22s cubic-bezier(.2,.85,.3,1);
+}
+
+@media (hover: hover){
+  .w:hover{
+    background-color: var(--hover);
+    box-shadow: 0 3px 14px -4px var(--hover-shadow), inset 0 0 0 1px var(--hover-edge);
+    transform: translateY(-.028em);
+  }
+}
+.w:active{ transform: translateY(0) scale(.985); }
+
+.w.on{
+  background-color: var(--band);
+  color: var(--band-ink);
+  box-shadow: 0 6px 22px -8px var(--band);
+  transform: translateY(-.028em);
+  opacity: 1 !important;
+  filter: none !important;
+}
+.w:focus-visible{ outline: 3px solid var(--band); outline-offset: 2px; }
+
+#text.dim .w{ opacity: .2; filter: blur(.055em); }
+#text.dim .w.live{ opacity: 1; filter: none; }
+
+/* ---------- word count ---------- */
+
+#count{
+  position: fixed;
+  left: clamp(16px,6vw,96px);
+  bottom: calc(16px + env(safe-area-inset-bottom,0px));
+  font-size: 13px;
+  letter-spacing: .04em;
+  color: var(--ink-soft);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ---------- scrim, small screens only ---------- */
+
+#scrim{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.28);
+  opacity: 0; pointer-events: none;
+  transition: opacity .3s ease;
+  z-index: 25;
+}
+
+/* ---------- sidebar ---------- */
+
+#side{
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: var(--panel);
+  z-index: 30;
+  background: var(--chrome);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  border-left: 1px solid var(--rule);
+  transform: translateX(calc(var(--panel) - var(--rail)));
+  transition: transform .32s cubic-bezier(.3,.8,.3,1);
+  display: flex;
+}
+body.open #side{ transform: translateX(0); }
+
+#handle{
+  flex: 0 0 var(--rail);
+  border: none;
+  border-right: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  border-radius: 0;
+  padding: 0;
+  font-size: 17px;
+  transition: color .15s ease, background-color .15s ease;
+}
+#handle:hover{ background: var(--hover); color: var(--ink); }
+#handle span{ display:block; transition: transform .32s cubic-bezier(.3,.8,.3,1); }
+body.open #handle span{ transform: rotate(180deg); }
+
+#panel{
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom,0px));
+  padding-top: calc(16px + env(safe-area-inset-top,0px));
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+button, select{
+  font: inherit; font-size: 14px;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  padding: 10px 13px;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+button:hover, select:hover{ background: var(--hover); }
+button:focus-visible, select:focus-visible, input:focus-visible{
+  outline: 2px solid var(--band); outline-offset: 2px;
+}
+select{ width: 100%; }
+
+#edit{
+  background: var(--band);
+  color: var(--band-ink);
+  border-color: transparent;
+  font-weight: 600; font-size: 16px; padding: 14px;
+}
+#edit:hover{ filter: brightness(1.06); }
+#read{ font-weight: 600; font-size: 15px; padding: 13px; }
+
+.pair{ display:flex; gap: 8px; }
+.pair > *{ flex: 1; min-width: 0; }
+
+.field{ display:flex; flex-direction:column; gap: 5px; }
+.field > span{ font-size: 11.5px; letter-spacing: .05em; color: var(--ink-soft); }
+input[type=range]{ width: 100%; accent-color: var(--band); cursor: pointer; margin: 0; }
+
+hr{ border:none; border-top:1px solid var(--rule); margin: 3px 0; }
+
+#bands{ display:flex; gap: 9px; }
+.band{
+  flex: 1; height: 36px; border-radius: 9px;
+  border: 2px solid transparent; cursor: pointer; padding: 0;
+  transition: transform .15s ease, border-color .15s ease;
+}
+.band:hover{ transform: translateY(-2px); background: none; }
+.band[aria-pressed="true"]{ border-color: var(--ink); }
+
+/* ---------- editor ---------- */
+
+#editor{
+  position: fixed; inset: 0; z-index: 50;
+  background: var(--bg);
+  display: none; flex-direction: column;
+  padding: clamp(16px,4vw,40px);
+  padding-top: calc(clamp(16px,4vw,40px) + env(safe-area-inset-top,0px));
+  padding-bottom: calc(clamp(16px,4vw,40px) + env(safe-area-inset-bottom,0px));
+}
+#editor.open{ display: flex; }
+#editor header{
+  display:flex; align-items:baseline; justify-content:space-between;
+  gap: 16px; margin-bottom: 14px;
+}
+#editor h1{ font-family:"Andika",serif; font-size:22px; font-weight:700; margin:0; }
+#srcCount{ font-size:13px; color: var(--ink-soft); letter-spacing:.04em; white-space:nowrap; }
+#src{
+  flex: 1; width: 100%; min-height: 120px;
+  font-family:"Andika",Georgia,serif;
+  font-size: 17px; line-height: 1.7;
+  color: var(--ink); background: transparent;
+  border: 1px solid var(--rule); border-radius: 12px;
+  padding: 14px 16px; resize: none;
+  -webkit-appearance: none;
+}
+#editor .acts{ display:flex; gap:12px; margin-top:14px; align-items:center; flex-wrap:wrap; }
+#save{
+  background: var(--band); color: var(--band-ink);
+  border-color: transparent; font-weight: 600; font-size: 16px;
+  padding: 15px 32px;
+  width: min(560px, 100%);
+}
+#save:hover{ filter: brightness(1.06); }
+#cancel{ padding: 15px 24px; }
+
+@media (prefers-reduced-motion: reduce){
+  *{ transition-duration:.01ms !important; animation-duration:.01ms !important; }
+}
+
+/* ---------- phones and narrow windows: the panel floats over the text
+              instead of squeezing it off the screen ---------- */
+
+@media (max-width: 860px){
+  :root{ --panel: min(272px, 78vw); }
+  body.open #stage{ padding-right: calc(var(--rail) + 12px); }
+  body.open #scrim{ opacity: 1; pointer-events: auto; }
+  #count{ left: 16px; }
+  #editor .acts{ flex-direction: column; align-items: stretch; }
+  #save, #cancel{ width: 100%; }
+}
+</style>
+</head>
+<body class="open">
+
+<div id="stage"><div id="text" aria-live="polite"></div></div>
+<div id="count"></div>
+<div id="scrim"></div>
+
+<aside id="side">
+  <button id="handle" aria-label="Show or hide controls"><span>‹</span></button>
+  <div id="panel">
+    <button id="edit">Change text</button>
+    <button id="read">Read</button>
+
+    <div id="bands" role="group" aria-label="Highlight colour"></div>
+    <hr>
+
+    <label class="field"><span>Speed</span><input id="rate" type="range" min=".4" max="1.2" step=".05" value=".8"></label>
+    <label class="field"><span>Size</span><input id="size" type="range" min="24" max="120" step="2" value="56"></label>
+    <label class="field"><span>Line width</span><input id="measure" type="range" min="10" max="60" step="1" value="26"></label>
+    <label class="field"><span>Word gap</span><input id="gap" type="range" min="0" max="45" step="1" value="14"></label>
+    <label class="field"><span>Line gap</span><input id="lead" type="range" min="130" max="260" step="5" value="185"></label>
+
+    <label class="field"><span>Letterform</span>
+      <select id="face">
+        <option value="Andika">Andika — school letters</option>
+        <option value="Atkinson Hyperlegible">Atkinson Hyperlegible</option>
+        <option value="Lexend">Lexend</option>
+        <option value="Georgia">Georgia</option>
+      </select>
+    </label>
+
+    <hr>
+    <div class="pair">
+      <button id="surface">Evening</button>
+      <button id="full">Full screen</button>
+    </div>
+  </div>
+</aside>
+
+<div id="editor">
+  <header>
+    <h1>Your text</h1>
+    <span id="srcCount"></span>
+  </header>
+  <textarea id="src" spellcheck="false"></textarea>
+  <div class="acts">
+    <button id="save">Use this text</button>
+    <button id="cancel">Cancel</button>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+var DEFAULT_TEXT =
+"Fox had six socks.\n" +
+"A big hen got one sock and ran off fast.\n\n" +
+"Fox did not mind.\n" +
+"Now Fox has five socks and a hen as a pal.";
+
+var BANDS = [
+  ["Pink","#F06FA8","#3A0E21"],
+  ["Blue","#3D7CC9","#ffffff"],
+  ["Turquoise","#2BAFA8","#04302E"]
+];
+
+var $ = function(id){ return document.getElementById(id); };
+var root = document.documentElement;
+var textEl = $("text");
+var synth = window.speechSynthesis;
+var narrow = window.matchMedia("(max-width: 860px)");
+
+var tokens = [], sentences = [];
+var current = -1, liveSentence = -1;
+var reading = false, paused = false;
+var timers = [];
+var voice = null, primed = false;
+
+function store(k,v){ try{ localStorage.setItem("evalyn:"+k, v); }catch(e){} }
+function recall(k,d){ try{ var v = localStorage.getItem("evalyn:"+k); return v===null?d:v; }catch(e){ return d; } }
+
+/* ---------------- text ---------------- */
+
+function tokenize(text){
+  tokens = []; sentences = [];
+  textEl.innerHTML = "";
+
+  var paras = text.split(/\n\s*\n/);
+  var cursor = 0, sIdx = 0, map = {};
+
+  paras.forEach(function(para){
+    var pStart = text.indexOf(para, cursor);
+    cursor = pStart + para.length;
+
+    var p = document.createElement("p");
+    var re = /\S+/g, m, lastEnd = pStart;
+
+    while ((m = re.exec(para)) !== null){
+      var start = pStart + m.index, end = start + m[0].length;
+      if (start > lastEnd) p.appendChild(document.createTextNode(text.slice(lastEnd, start)));
+      lastEnd = end;
+
+      var span = document.createElement("span");
+      span.className = "w";
+      span.textContent = m[0];
+      span.dataset.i = tokens.length;
+      span.setAttribute("tabindex","0");
+      p.appendChild(span);
+
+      if (!map[sIdx]) map[sIdx] = { start:start, end:end, tokens:[] };
+      map[sIdx].end = end;
+      map[sIdx].tokens.push(tokens.length);
+      tokens.push({ word:m[0], start:start, end:end, sentence:0, el:span });
+
+      if (/[.!?\u2026]["'\u201d\u2019)\]]?$/.test(m[0])) sIdx++;
+    }
+    textEl.appendChild(p);
+    sIdx++;
+  });
+
+  Object.keys(map).sort(function(a,b){ return a-b; }).forEach(function(k){
+    var s = map[k];
+    s.text = text.slice(s.start, s.end);
+    s.index = sentences.length;
+    s.tokens.forEach(function(ti){
+      tokens[ti].sentence = sentences.length;
+      tokens[ti].el.dataset.s = sentences.length;
+    });
+    sentences.push(s);
+  });
+
+  current = -1; liveSentence = -1;
+  setLive(-1);
+  updateCount();
+}
+
+function updateCount(){
+  var n = tokens.length;
+  $("count").textContent = (reading && current > -1)
+    ? (current + 1) + " / " + n
+    : n + (n === 1 ? " word" : " words");
+}
+
+/* ---------------- highlight and dim ---------------- */
+
+function setLive(si){
+  if (si === liveSentence) return;
+  liveSentence = si;
+  if (si < 0){
+    textEl.classList.remove("dim");
+    tokens.forEach(function(t){ t.el.classList.remove("live"); });
+    return;
+  }
+  tokens.forEach(function(t){ t.el.classList.toggle("live", t.sentence === si); });
+  textEl.classList.add("dim");
+}
+
+function clearWord(){
+  if (current > -1 && tokens[current]) tokens[current].el.classList.remove("on");
+  current = -1;
+}
+
+function markWord(i){
+  if (i === current) return;
+  clearWord();
+  if (!tokens[i]) return;
+  current = i;
+  tokens[i].el.classList.add("on");
+  setLive(tokens[i].sentence);
+  updateCount();
+  var r = tokens[i].el.getBoundingClientRect();
+  if (r.top < 70 || r.bottom > window.innerHeight - 70){
+    tokens[i].el.scrollIntoView({ block:"center", behavior:"smooth" });
+  }
+}
+
+/* ---------------- speech: Daniel, en-GB ---------------- */
+
+function pickVoice(){
+  if (!synth) return;
+  var all = synth.getVoices();
+  voice =
+    all.find(function(v){ return /daniel/i.test(v.name) && /en[-_]GB/i.test(v.lang); }) ||
+    all.find(function(v){ return /daniel/i.test(v.name); }) ||
+    all.find(function(v){ return /en[-_]GB/i.test(v.lang); }) ||
+    all.find(function(v){ return /^en/i.test(v.lang); }) || null;
+}
+
+/* iOS refuses to speak unless the first utterance follows a real tap */
+function prime(){
+  if (primed || !synth) return;
+  primed = true;
+  try{
+    var u = new SpeechSynthesisUtterance(" ");
+    u.volume = 0;
+    synth.speak(u);
+  }catch(e){}
+}
+document.addEventListener("pointerdown", prime, { once: true });
+document.addEventListener("touchstart", prime, { once: true, passive: true });
+
+function rate(){ return parseFloat($("rate").value); }
+
+function stopAll(){
+  timers.forEach(clearTimeout); timers = [];
+  if (synth) synth.cancel();
+  reading = false; paused = false;
+  $("read").textContent = "Read";
+  updateCount();
+}
+
+function utter(text){
+  var u = new SpeechSynthesisUtterance(text);
+  if (voice) u.voice = voice;
+  u.lang = voice ? voice.lang : "en-GB";
+  u.rate = rate();
+  return u;
+}
+
+function speakSentence(si, chain){
+  if (!synth || si >= sentences.length){ stopAll(); clearWord(); setLive(-1); return; }
+  var s = sentences[si];
+  setLive(si);
+
+  var u = utter(s.text), got = false;
+
+  u.onboundary = function(e){
+    if (e.name && e.name !== "word") return;
+    got = true;
+    var abs = s.start + (e.charIndex || 0);
+    var idx = s.tokens.find(function(ti){ return tokens[ti].start <= abs && abs < tokens[ti].end; });
+    if (idx === undefined) idx = s.tokens.find(function(ti){ return tokens[ti].start >= abs; });
+    if (idx !== undefined) markWord(idx);
+  };
+  u.onstart = function(){
+    setTimeout(function(){ if (!got && reading) fallback(s); }, 500);
+  };
+  u.onend = function(){
+    if (!reading) return;
+    timers.forEach(clearTimeout); timers = [];
+    if (chain) speakSentence(si + 1, true);
+    else { stopAll(); clearWord(); }
+  };
+  u.onerror = function(){ stopAll(); };
+
+  synth.speak(u);
+}
+
+/* most iOS voices skip boundary events, so estimate word timings instead */
+function fallback(s){
+  var total = (s.text.length / (13.5 * rate())) * 1000;
+  var w = s.tokens.map(function(ti){ return tokens[ti].word.length + 1; });
+  var sum = w.reduce(function(a,b){ return a+b; }, 0), t = 0;
+  s.tokens.forEach(function(ti, n){
+    timers.push(setTimeout(function(){ if (reading) markWord(ti); }, t));
+    t += (w[n] / sum) * total;
+  });
+}
+
+function play(){
+  if (!synth) return;
+  if (reading && !paused){ synth.pause(); paused = true; $("read").textContent = "Resume"; return; }
+  if (reading && paused){ synth.resume(); paused = false; $("read").textContent = "Pause"; return; }
+  reading = true; paused = false;
+  $("read").textContent = "Pause";
+  document.body.classList.remove("open");
+  speakSentence(current > -1 ? tokens[current].sentence : 0, true);
+}
+
+function speakWord(word){
+  if (!synth || !word) return;
+  synth.cancel();
+  timers.forEach(clearTimeout); timers = [];
+  reading = false; paused = false;
+  $("read").textContent = "Read";
+  var u = utter(word);
+  u.rate = Math.max(.35, rate() * .72);
+  synth.speak(u);
+}
+
+function readSentence(si){
+  if (synth) synth.cancel();
+  timers.forEach(clearTimeout); timers = [];
+  reading = true; paused = false;
+  $("read").textContent = "Pause";
+  speakSentence(si, false);
+}
+
+/* ---------------- interaction ---------------- */
+
+var pending = null, lastI = -1, lastTap = 0, hoverClear = null;
+var pointerType = "mouse";
+
+/* tracked per event rather than per device, so an iPad with a keyboard and
+   trackpad still gets the mouse behaviour when a mouse is what's being used */
+document.addEventListener("pointerdown", function(e){
+  pointerType = e.pointerType || "mouse";
+}, true);
+
+function isTouch(){ return pointerType === "touch" || pointerType === "pen"; }
+
+function clean(w){ return w.replace(/[^\w'\u2019-]/g, ""); }
+
+textEl.addEventListener("click", function(e){
+  var el = e.target.closest(".w");
+  if (!el) return;
+  var i = parseInt(el.dataset.i, 10);
+  var si = parseInt(el.dataset.s, 10);
+  var now = Date.now();
+
+  /* Touch: silent. One tap isolates the sentence, two taps highlight the word.
+     No delay on the first tap, because neither action needs undoing. */
+  if (isTouch()){
+    clearTimeout(hoverClear);
+    if (i === lastI && now - lastTap < 400){
+      lastI = -1; lastTap = 0;
+      markWord(i);
+    } else {
+      lastI = i; lastTap = now;
+      clearWord();
+      setLive(si);
+      updateCount();
+    }
+    return;
+  }
+
+  /* Mouse: one click speaks the word, two read the sentence. Double-click is
+     detected here rather than via dblclick, which Safari fires unreliably. */
+  if (i === lastI && now - lastTap < 330){
+    clearTimeout(pending); pending = null;
+    lastI = -1; lastTap = 0;
+    markWord(i);
+    readSentence(si);
+    return;
+  }
+
+  lastI = i; lastTap = now;
+  clearTimeout(hoverClear);
+  setLive(si);
+
+  clearTimeout(pending);
+  pending = setTimeout(function(){
+    pending = null;
+    markWord(i);
+    speakWord(clean(tokens[i].word));
+  }, 260);
+});
+
+/* tapping the empty space around the text puts everything back */
+$("stage").addEventListener("click", function(e){
+  if (e.target.closest(".w") || reading) return;
+  clearTimeout(pending); pending = null;
+  lastI = -1; lastTap = 0;
+  clearWord(); setLive(-1); updateCount();
+});
+
+textEl.addEventListener("mouseover", function(e){
+  var el = e.target.closest(".w");
+  if (!el || reading) return;
+  clearTimeout(hoverClear);
+  setLive(parseInt(el.dataset.s, 10));
+});
+
+textEl.addEventListener("mouseleave", function(){
+  if (reading) return;
+  hoverClear = setTimeout(function(){
+    if (!reading){ clearWord(); setLive(-1); updateCount(); }
+  }, 500);
+});
+
+textEl.addEventListener("touchstart", function(e){
+  var el = e.target.closest(".w");
+  if (!el) return;
+  clearTimeout(hoverClear);
+  setLive(parseInt(el.dataset.s, 10));
+}, { passive: true });
+
+textEl.addEventListener("keydown", function(e){
+  var el = e.target.closest(".w");
+  if (!el) return;
+  if (e.key === "Enter" || e.key === " "){
+    e.preventDefault();
+    var i = parseInt(el.dataset.i, 10);
+    markWord(i);
+    speakWord(clean(tokens[i].word));
+  }
+});
+
+/* ---------------- controls ---------------- */
+
+$("handle").addEventListener("click", function(){ document.body.classList.toggle("open"); });
+$("scrim").addEventListener("click", function(){ document.body.classList.remove("open"); });
+
+(function(){
+  var wrap = $("bands");
+  BANDS.forEach(function(b, i){
+    var btn = document.createElement("button");
+    btn.className = "band";
+    btn.style.background = b[1];
+    btn.title = b[0];
+    btn.setAttribute("aria-label", b[0]);
+    btn.setAttribute("aria-pressed","false");
+    btn.addEventListener("click", function(){ setBand(i); });
+    wrap.appendChild(btn);
+  });
+})();
+
+function setBand(i){
+  var b = BANDS[i] || BANDS[0];
+  root.style.setProperty("--band", b[1]);
+  root.style.setProperty("--band-ink", b[2]);
+  Array.prototype.forEach.call($("bands").children, function(el, n){
+    el.setAttribute("aria-pressed", n === i ? "true" : "false");
+  });
+  store("band", i);
+}
+
+function bind(id, key, apply){
+  var el = $(id), saved = recall(key, null);
+  if (saved !== null) el.value = saved;
+  apply(el.value);
+  el.addEventListener("input", function(){ apply(el.value); store(key, el.value); });
+}
+bind("size","size",function(v){ root.style.setProperty("--size", v+"px"); });
+bind("rate","rate",function(){});
+bind("measure","measure",function(v){ root.style.setProperty("--measure", v+"ch"); });
+bind("gap","gap",function(v){ root.style.setProperty("--spacing", (v/100)+"em"); });
+bind("lead","lead",function(v){ root.style.setProperty("--leading", (v/100)); });
+
+$("face").addEventListener("change", function(){
+  root.style.setProperty("--face", '"'+this.value+'"');
+  store("face", this.value);
+});
+(function(){
+  var f = recall("face","Andika");
+  $("face").value = f;
+  root.style.setProperty("--face", '"'+f+'"');
+})();
+
+$("read").addEventListener("click", play);
+
+$("surface").addEventListener("click", function(){
+  var next = root.getAttribute("data-surface") === "evening" ? "day" : "evening";
+  root.setAttribute("data-surface", next);
+  this.textContent = next === "evening" ? "Daylight" : "Evening";
+  store("surface", next);
+});
+(function(){
+  var s = recall("surface","day");
+  root.setAttribute("data-surface", s);
+  $("surface").textContent = s === "evening" ? "Daylight" : "Evening";
+})();
+
+$("full").addEventListener("click", function(){
+  if (document.fullscreenElement) document.exitFullscreen();
+  else if (root.requestFullscreen) root.requestFullscreen();
+  else if (root.webkitRequestFullscreen) root.webkitRequestFullscreen();
+});
+
+/* editor */
+function countWords(t){ var m = t.trim().match(/\S+/g); return m ? m.length : 0; }
+function srcCount(){
+  var n = countWords($("src").value);
+  $("srcCount").textContent = n + (n === 1 ? " word" : " words");
+}
+
+$("edit").addEventListener("click", function(){
+  stopAll(); clearWord(); setLive(-1);
+  $("src").value = recall("text", DEFAULT_TEXT);
+  srcCount();
+  $("editor").classList.add("open");
+  $("src").focus();
+});
+$("src").addEventListener("input", srcCount);
+$("cancel").addEventListener("click", function(){ $("editor").classList.remove("open"); });
+$("save").addEventListener("click", function(){
+  var t = $("src").value.trim() || DEFAULT_TEXT;
+  store("text", t);
+  tokenize(t);
+  $("editor").classList.remove("open");
+  if (narrow.matches) document.body.classList.remove("open");
+});
+
+window.addEventListener("keydown", function(e){
+  if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return;
+  if (e.code === "Space"){ e.preventDefault(); play(); }
+  if (e.key === "Escape"){ stopAll(); clearWord(); setLive(-1); $("editor").classList.remove("open"); }
+});
+
+/* ---------------- start ---------------- */
+
+if (synth){ pickVoice(); synth.onvoiceschanged = pickVoice; }
+setBand(parseInt(recall("band","0"), 10) || 0);
+tokenize(recall("text", DEFAULT_TEXT));
+
+/* open on a big screen, closed on a phone so the text is what you see first */
+if (narrow.matches) document.body.classList.remove("open");
+
+})();
+</script>
+</body>
+</html>
