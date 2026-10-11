@@ -45,31 +45,28 @@
 
 *,*::before,*::after{ box-sizing: inherit; }
 
-html{ height: 100%; }
+html{ overflow-x: hidden; }
 body{
-  height: 100%;
-  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   background: var(--bg);
   color: var(--ink);
   font-family: "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
-  overflow: hidden;
   touch-action: manipulation;
   transition: background-color .35s ease, color .35s ease;
 }
+body.locked{ overflow: hidden; }
 
 /* ---------- stage ---------- */
 
 #stage{
-  height: 100%;
-  display: flex;
-  align-items: center;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-  padding: clamp(20px,5vw,72px) clamp(16px,5vw,72px) 60px clamp(16px,6vw,96px);
-  padding-top: calc(clamp(20px,5vw,72px) + env(safe-area-inset-top,0px));
+  display: block;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: clamp(24px,9vh,110px) clamp(16px,5vw,72px) 96px clamp(16px,6vw,96px);
+  padding-top: calc(clamp(24px,9vh,110px) + env(safe-area-inset-top,0px));
   padding-right: calc(var(--rail) + clamp(12px,4vw,48px));
   transition: padding-right .32s cubic-bezier(.3,.8,.3,1);
 }
@@ -82,10 +79,9 @@ body.open #stage{ padding-right: calc(var(--panel) + clamp(12px,4vw,48px)); }
   letter-spacing: .012em;
   word-spacing: var(--spacing);
   max-width: min(var(--measure), 100%);
-  width: 100%;
-  margin: auto 0;
+  margin: 0;
   overflow-wrap: break-word;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 #text p{ margin: 0 0 .85em; }
 #text p:last-child{ margin-bottom: 0; }
@@ -222,7 +218,7 @@ select{ width: 100%; }
   font-weight: 600; font-size: 16px; padding: 14px;
 }
 #edit:hover{ filter: brightness(1.06); }
-#read{ font-weight: 600; font-size: 15px; padding: 13px; }
+#surface{ font-weight: 600; font-size: 16px; padding: 14px; }
 
 .pair{ display:flex; gap: 8px; }
 .pair > *{ flex: 1; min-width: 0; }
@@ -254,11 +250,16 @@ hr{ border:none; border-top:1px solid var(--rule); margin: 3px 0; }
 }
 #editor.open{ display: flex; }
 #editor header{
-  display:flex; align-items:baseline; justify-content:space-between;
-  gap: 16px; margin-bottom: 14px;
+  display:flex; align-items:center; justify-content:space-between;
+  gap: 16px; margin-bottom: 16px;
 }
 #editor h1{ font-family:"Andika",serif; font-size:22px; font-weight:700; margin:0; }
-#srcCount{ font-size:13px; color: var(--ink-soft); letter-spacing:.04em; white-space:nowrap; }
+#back{
+  border: 1px solid var(--rule); background: transparent; color: var(--ink-soft);
+  font-size: 22px; line-height: 1; padding: 9px 16px; border-radius: 9px;
+  flex: 0 0 auto;
+}
+#back:hover{ background: var(--hover); color: var(--ink); }
 #src{
   flex: 1; width: 100%; min-height: 120px;
   font-family:"Andika",Georgia,serif;
@@ -268,15 +269,15 @@ hr{ border:none; border-top:1px solid var(--rule); margin: 3px 0; }
   padding: 14px 16px; resize: none;
   -webkit-appearance: none;
 }
-#editor .acts{ display:flex; gap:12px; margin-top:14px; align-items:center; flex-wrap:wrap; }
+#editor .acts{ display:flex; gap:12px; margin-bottom:16px; align-items:stretch; }
+#editor .acts > *{ flex: 1; min-width: 0; }
 #save{
   background: var(--band); color: var(--band-ink);
   border-color: transparent; font-weight: 600; font-size: 16px;
-  padding: 15px 32px;
-  width: min(560px, 100%);
+  padding: 15px 24px;
 }
 #save:hover{ filter: brightness(1.06); }
-#cancel{ padding: 15px 24px; }
+#clear{ padding: 15px 24px; font-size: 16px; }
 
 @media (prefers-reduced-motion: reduce){
   *{ transition-duration:.01ms !important; animation-duration:.01ms !important; }
@@ -285,13 +286,12 @@ hr{ border:none; border-top:1px solid var(--rule); margin: 3px 0; }
 /* ---------- phones and narrow windows: the panel floats over the text
               instead of squeezing it off the screen ---------- */
 
-@media (max-width: 860px){
+@media (max-width: 768px){
   :root{ --panel: min(272px, 78vw); }
   body.open #stage{ padding-right: calc(var(--rail) + 12px); }
   body.open #scrim{ opacity: 1; pointer-events: auto; }
   #count{ left: 16px; }
-  #editor .acts{ flex-direction: column; align-items: stretch; }
-  #save, #cancel{ width: 100%; }
+  #editor .acts{ flex-direction: column; }
 }
 </style>
 </head>
@@ -305,7 +305,7 @@ hr{ border:none; border-top:1px solid var(--rule); margin: 3px 0; }
   <button id="handle" aria-label="Show or hide controls"><span>‹</span></button>
   <div id="panel">
     <button id="edit">Change text</button>
-    <button id="read">Read</button>
+    <button id="surface">Evening</button>
 
     <div id="bands" role="group" aria-label="Highlight colour"></div>
     <hr>
@@ -325,24 +325,19 @@ hr{ border:none; border-top:1px solid var(--rule); margin: 3px 0; }
       </select>
     </label>
 
-    <hr>
-    <div class="pair">
-      <button id="surface">Evening</button>
-      <button id="full">Full screen</button>
-    </div>
   </div>
 </aside>
 
 <div id="editor">
   <header>
     <h1>Your text</h1>
-    <span id="srcCount"></span>
+    <button id="back" aria-label="Go back">&rarr;</button>
   </header>
-  <textarea id="src" spellcheck="false"></textarea>
   <div class="acts">
     <button id="save">Use this text</button>
-    <button id="cancel">Cancel</button>
+    <button id="clear">Clear current text</button>
   </div>
+  <textarea id="src" spellcheck="false"></textarea>
 </div>
 
 <script>
@@ -365,8 +360,9 @@ var $ = function(id){ return document.getElementById(id); };
 var root = document.documentElement;
 var textEl = $("text");
 var synth = window.speechSynthesis;
-var narrow = window.matchMedia("(max-width: 860px)");
+var narrow = window.matchMedia("(max-width: 768px)");
 
+var readBtn = { textContent: "Read" };   /* label sink: the Read button was removed */
 var tokens = [], sentences = [];
 var current = -1, liveSentence = -1;
 var reading = false, paused = false;
@@ -452,6 +448,37 @@ function setLive(si){
   textEl.classList.add("dim");
 }
 
+var smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* Auto-scroll is for touch devices only — iPad Air and phones. On the Mac
+   and the TV the page stays where it is and the mouse does the scrolling. */
+var touchScreen = window.matchMedia("(pointer: coarse), (max-width: 1180px)");
+
+/* Put the tapped sentence in the middle of the screen. A later sentence
+   therefore scrolls down, an earlier one scrolls back up. */
+function centreSentence(si){
+  if (!touchScreen.matches) return;
+  var s = sentences[si];
+  if (!s || !s.tokens.length) return;
+  var first = tokens[s.tokens[0]].el.getBoundingClientRect();
+  var last  = tokens[s.tokens[s.tokens.length - 1]].el.getBoundingClientRect();
+  var top = first.top, height = last.bottom - first.top;
+  var vh = window.innerHeight;
+  var y = window.pageYOffset;
+
+  /* a sentence taller than the screen can't be centred — sit its first line near the top */
+  var target = (height > vh * 0.8)
+    ? y + top - vh * 0.12
+    : y + top + height / 2 - vh / 2;
+
+  var max = Math.max(0, document.documentElement.scrollHeight - vh);
+  target = Math.max(0, Math.min(target, max));
+  if (Math.abs(target - y) < 8) return;
+
+  try{ window.scrollTo({ top: target, behavior: smooth ? "smooth" : "auto" }); }
+  catch(e){ window.scrollTo(0, target); }
+}
+
 function clearWord(){
   if (current > -1 && tokens[current]) tokens[current].el.classList.remove("on");
   current = -1;
@@ -465,9 +492,11 @@ function markWord(i){
   tokens[i].el.classList.add("on");
   setLive(tokens[i].sentence);
   updateCount();
-  var r = tokens[i].el.getBoundingClientRect();
-  if (r.top < 70 || r.bottom > window.innerHeight - 70){
-    tokens[i].el.scrollIntoView({ block:"center", behavior:"smooth" });
+  if (reading){
+    var r = tokens[i].el.getBoundingClientRect();
+    if (r.top < 60 || r.bottom > window.innerHeight - 60){
+      tokens[i].el.scrollIntoView({ block:"center", behavior: smooth ? "smooth" : "auto" });
+    }
   }
 }
 
@@ -502,7 +531,7 @@ function stopAll(){
   timers.forEach(clearTimeout); timers = [];
   if (synth) synth.cancel();
   reading = false; paused = false;
-  $("read").textContent = "Read";
+  readBtn.textContent = "Read";
   updateCount();
 }
 
@@ -518,6 +547,7 @@ function speakSentence(si, chain){
   if (!synth || si >= sentences.length){ stopAll(); clearWord(); setLive(-1); return; }
   var s = sentences[si];
   setLive(si);
+  centreSentence(si);
 
   var u = utter(s.text), got = false;
 
@@ -556,10 +586,10 @@ function fallback(s){
 
 function play(){
   if (!synth) return;
-  if (reading && !paused){ synth.pause(); paused = true; $("read").textContent = "Resume"; return; }
-  if (reading && paused){ synth.resume(); paused = false; $("read").textContent = "Pause"; return; }
+  if (reading && !paused){ synth.pause(); paused = true; readBtn.textContent = "Resume"; return; }
+  if (reading && paused){ synth.resume(); paused = false; readBtn.textContent = "Pause"; return; }
   reading = true; paused = false;
-  $("read").textContent = "Pause";
+  readBtn.textContent = "Pause";
   document.body.classList.remove("open");
   speakSentence(current > -1 ? tokens[current].sentence : 0, true);
 }
@@ -569,7 +599,7 @@ function speakWord(word){
   synth.cancel();
   timers.forEach(clearTimeout); timers = [];
   reading = false; paused = false;
-  $("read").textContent = "Read";
+  readBtn.textContent = "Read";
   var u = utter(word);
   u.rate = Math.max(.35, rate() * .72);
   synth.speak(u);
@@ -579,7 +609,7 @@ function readSentence(si){
   if (synth) synth.cancel();
   timers.forEach(clearTimeout); timers = [];
   reading = true; paused = false;
-  $("read").textContent = "Pause";
+  readBtn.textContent = "Pause";
   speakSentence(si, false);
 }
 
@@ -609,7 +639,7 @@ textEl.addEventListener("click", function(e){
      No delay on the first tap, because neither action needs undoing. */
   if (isTouch()){
     clearTimeout(hoverClear);
-    if (i === lastI && now - lastTap < 400){
+    if (i === lastI && now - lastTap < 600){   /* forgiving window — a 5-year-old double-taps slowly */
       lastI = -1; lastTap = 0;
       markWord(i);
     } else {
@@ -618,6 +648,7 @@ textEl.addEventListener("click", function(e){
       setLive(si);
       updateCount();
     }
+    centreSentence(si);
     return;
   }
 
@@ -634,6 +665,7 @@ textEl.addEventListener("click", function(e){
   lastI = i; lastTap = now;
   clearTimeout(hoverClear);
   setLive(si);
+  centreSentence(si);
 
   clearTimeout(pending);
   pending = setTimeout(function(){
@@ -734,8 +766,6 @@ $("face").addEventListener("change", function(){
   root.style.setProperty("--face", '"'+f+'"');
 })();
 
-$("read").addEventListener("click", play);
-
 $("surface").addEventListener("click", function(){
   var next = root.getAttribute("data-surface") === "evening" ? "day" : "evening";
   root.setAttribute("data-surface", next);
@@ -748,40 +778,41 @@ $("surface").addEventListener("click", function(){
   $("surface").textContent = s === "evening" ? "Daylight" : "Evening";
 })();
 
-$("full").addEventListener("click", function(){
-  if (document.fullscreenElement) document.exitFullscreen();
-  else if (root.requestFullscreen) root.requestFullscreen();
-  else if (root.webkitRequestFullscreen) root.webkitRequestFullscreen();
-});
-
 /* editor */
-function countWords(t){ var m = t.trim().match(/\S+/g); return m ? m.length : 0; }
-function srcCount(){
-  var n = countWords($("src").value);
-  $("srcCount").textContent = n + (n === 1 ? " word" : " words");
-}
-
 $("edit").addEventListener("click", function(){
   stopAll(); clearWord(); setLive(-1);
   $("src").value = recall("text", DEFAULT_TEXT);
-  srcCount();
   $("editor").classList.add("open");
+  document.body.classList.add("locked");
   $("src").focus();
 });
-$("src").addEventListener("input", srcCount);
-$("cancel").addEventListener("click", function(){ $("editor").classList.remove("open"); });
+$("back").addEventListener("click", function(){
+  $("editor").classList.remove("open");
+  document.body.classList.remove("locked");
+});
+
+$("clear").addEventListener("click", function(){
+  $("src").value = "";
+  $("src").focus();
+});
 $("save").addEventListener("click", function(){
   var t = $("src").value.trim() || DEFAULT_TEXT;
   store("text", t);
   tokenize(t);
   $("editor").classList.remove("open");
+  document.body.classList.remove("locked");
   if (narrow.matches) document.body.classList.remove("open");
+  window.scrollTo(0, 0);
 });
 
 window.addEventListener("keydown", function(e){
   if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return;
   if (e.code === "Space"){ e.preventDefault(); play(); }
-  if (e.key === "Escape"){ stopAll(); clearWord(); setLive(-1); $("editor").classList.remove("open"); }
+  if (e.key === "Escape"){
+    stopAll(); clearWord(); setLive(-1);
+    $("editor").classList.remove("open");
+    document.body.classList.remove("locked");
+  }
 });
 
 /* ---------------- start ---------------- */
