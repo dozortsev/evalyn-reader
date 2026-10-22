@@ -26,8 +26,6 @@
   --measure: 26ch;
   --spacing: .14em;
   --leading: 1.85;
-  --rail: 46px;
-  --panel: 268px;
 
   box-sizing: border-box;
 }
@@ -67,10 +65,7 @@ body.locked{ overflow: hidden; }
   min-height: 100dvh;
   padding: clamp(24px,9vh,110px) clamp(16px,5vw,72px) 96px clamp(16px,6vw,96px);
   padding-top: calc(clamp(24px,9vh,110px) + env(safe-area-inset-top,0px));
-  padding-right: calc(var(--rail) + clamp(12px,4vw,48px));
-  transition: padding-right .32s cubic-bezier(.3,.8,.3,1);
 }
-body.open #stage{ padding-right: calc(var(--panel) + clamp(12px,4vw,48px)); }
 
 #text{
   font-family: var(--face,"Andika"), Georgia, serif;
@@ -140,59 +135,104 @@ body.open #stage{ padding-right: calc(var(--panel) + clamp(12px,4vw,48px)); }
   z-index: 5;
 }
 
-/* ---------- scrim, small screens only ---------- */
+/* ---------- scrim behind the settings sheet ---------- */
 
 #scrim{
   position: fixed; inset: 0;
   background: rgba(0,0,0,.28);
   opacity: 0; pointer-events: none;
   transition: opacity .3s ease;
+  touch-action: none;
   z-index: 25;
 }
+body.open #scrim{ opacity: 1; pointer-events: auto; }
 
-/* ---------- sidebar ---------- */
+/* ---------- settings: a sheet that drops down from the top ---------- */
 
-#side{
+#settingsBtn{
   position: fixed;
-  top: 0; right: 0; bottom: 0;
-  width: var(--panel);
-  z-index: 30;
-  background: var(--chrome);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  backdrop-filter: blur(16px) saturate(140%);
-  border-left: 1px solid var(--rule);
-  transform: translateX(calc(var(--panel) - var(--rail)));
-  transition: transform .32s cubic-bezier(.3,.8,.3,1);
-  display: flex;
-}
-body.open #side{ transform: translateX(0); }
-
-#handle{
-  flex: 0 0 var(--rail);
-  border: none;
-  border-right: 1px solid var(--rule);
-  background: transparent;
+  top: calc(env(safe-area-inset-top,0px) + 12px);
+  right: calc(env(safe-area-inset-right,0px) + clamp(12px,3vw,24px));
+  z-index: 35;
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11.5px; letter-spacing: .05em; line-height: 1;
   color: var(--ink-soft);
-  cursor: pointer;
-  border-radius: 0;
-  padding: 0;
-  font-size: 17px;
-  transition: color .15s ease, background-color .15s ease;
+  background: var(--chrome);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 8px 12px 8px 14px;
 }
-#handle:hover{ background: var(--hover); color: var(--ink); }
-#handle span{ display:block; transition: transform .32s cubic-bezier(.3,.8,.3,1); }
-body.open #handle span{ transform: rotate(180deg); }
+#settingsBtn:hover{ background: var(--chrome); color: var(--ink); }
+#settingsBtn svg{ display: block; transition: transform .42s cubic-bezier(.32,.72,0,1); }
+body.open #settingsBtn svg{ transform: rotate(180deg); }
 
-#panel{
-  flex: 1;
-  min-width: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 16px 16px calc(24px + env(safe-area-inset-bottom,0px));
-  padding-top: calc(16px + env(safe-area-inset-top,0px));
+#sheet{
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 30;
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
   display: flex;
   flex-direction: column;
+  background: var(--chrome);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(20px) saturate(150%);
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0 0 22px 22px;
+  box-shadow: 0 22px 60px -24px rgba(0,0,0,.35);
+  transform: translateY(calc(-100% - 48px));
+  transition: transform .42s cubic-bezier(.32,.72,0,1);
+}
+body.open #sheet{ transform: translateY(0); }
+#sheet.dragging{ transition: none; }
+
+#panel{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top,0px) + 58px) 0 4px;
+  padding-left: calc(clamp(16px,4vw,32px) + env(safe-area-inset-left,0px));
+  padding-right: calc(clamp(16px,4vw,32px) + env(safe-area-inset-right,0px));
+  display: grid;
   gap: 13px;
+  align-content: start;
+}
+.group{ display: flex; flex-direction: column; gap: 13px; min-width: 0; }
+
+/* the grabber, like the bar on an iOS sheet: tap to close, or drag it up */
+#grabber{
+  flex: 0 0 auto;
+  width: 100%;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 0 0 22px 22px;
+  background: transparent;
+  display: flex; align-items: center; justify-content: center;
+  touch-action: none;
+}
+#grabber::before{
+  content: "";
+  width: 38px; height: 5px; border-radius: 3px;
+  background: var(--ink-soft); opacity: .45;
+  transition: opacity .15s ease;
+}
+#grabber:hover{ background: transparent; }
+#grabber:hover::before{ opacity: .75; }
+
+@media (min-width: 720px){
+  #panel{
+    grid-template-columns: minmax(0,1fr) minmax(0,1.35fr);
+    column-gap: clamp(24px,4vw,48px);
+  }
+  #panel > hr{ display: none; }
 }
 
 button, select{
@@ -283,50 +323,54 @@ hr{ border:none; border-top:1px solid var(--rule); margin: 3px 0; }
   *{ transition-duration:.01ms !important; animation-duration:.01ms !important; }
 }
 
-/* ---------- phones and narrow windows: the panel floats over the text
-              instead of squeezing it off the screen ---------- */
+/* ---------- phones and narrow windows ---------- */
 
 @media (max-width: 768px){
-  :root{ --panel: min(272px, 78vw); }
-  body.open #stage{ padding-right: calc(var(--rail) + 12px); }
-  body.open #scrim{ opacity: 1; pointer-events: auto; }
   #count{ left: 16px; }
   #editor .acts{ flex-direction: column; }
 }
 </style>
 </head>
-<body class="open">
+<body>
 
 <div id="stage"><div id="text" aria-live="polite"></div></div>
 <div id="count"></div>
 <div id="scrim"></div>
 
-<aside id="side">
-  <button id="handle" aria-label="Show or hide controls"><span>‹</span></button>
-  <div id="panel">
-    <button id="edit">Change text</button>
-    <button id="surface">Evening</button>
+<button id="settingsBtn" aria-controls="sheet" aria-expanded="false">
+  <span>Settings</span>
+  <svg width="10" height="6" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
 
-    <div id="bands" role="group" aria-label="Highlight colour"></div>
+<div id="sheet" role="dialog" aria-modal="true" aria-label="Settings" inert>
+  <div id="panel">
+    <div class="group">
+      <button id="edit">Change text</button>
+      <button id="surface">Evening</button>
+      <div id="bands" role="group" aria-label="Highlight colour"></div>
+    </div>
+
     <hr>
 
-    <label class="field"><span>Speed</span><input id="rate" type="range" min=".4" max="1.2" step=".05" value=".8"></label>
-    <label class="field"><span>Size</span><input id="size" type="range" min="24" max="120" step="2" value="56"></label>
-    <label class="field"><span>Line width</span><input id="measure" type="range" min="10" max="60" step="1" value="26"></label>
-    <label class="field"><span>Word gap</span><input id="gap" type="range" min="0" max="45" step="1" value="14"></label>
-    <label class="field"><span>Line gap</span><input id="lead" type="range" min="130" max="260" step="5" value="185"></label>
+    <div class="group">
+      <label class="field"><span>Speed</span><input id="rate" type="range" min=".4" max="1.2" step=".05" value=".8"></label>
+      <label class="field"><span>Size</span><input id="size" type="range" min="24" max="120" step="2" value="56"></label>
+      <label class="field"><span>Line width</span><input id="measure" type="range" min="10" max="60" step="1" value="26"></label>
+      <label class="field"><span>Word gap</span><input id="gap" type="range" min="0" max="45" step="1" value="14"></label>
+      <label class="field"><span>Line gap</span><input id="lead" type="range" min="130" max="260" step="5" value="185"></label>
 
-    <label class="field"><span>Letterform</span>
-      <select id="face">
-        <option value="Andika">Andika — school letters</option>
-        <option value="Atkinson Hyperlegible">Atkinson Hyperlegible</option>
-        <option value="Lexend">Lexend</option>
-        <option value="Georgia">Georgia</option>
-      </select>
-    </label>
-
+      <label class="field"><span>Letterform</span>
+        <select id="face">
+          <option value="Andika">Andika — school letters</option>
+          <option value="Atkinson Hyperlegible">Atkinson Hyperlegible</option>
+          <option value="Lexend">Lexend</option>
+          <option value="Georgia">Georgia</option>
+        </select>
+      </label>
+    </div>
   </div>
-</aside>
+  <button id="grabber" aria-label="Close settings"></button>
+</div>
 
 <div id="editor">
   <header>
@@ -360,7 +404,6 @@ var $ = function(id){ return document.getElementById(id); };
 var root = document.documentElement;
 var textEl = $("text");
 var synth = window.speechSynthesis;
-var narrow = window.matchMedia("(max-width: 768px)");
 
 var readBtn = { textContent: "Read" };   /* label sink: the Read button was removed */
 var tokens = [], sentences = [];
@@ -590,7 +633,7 @@ function play(){
   if (reading && paused){ synth.resume(); paused = false; readBtn.textContent = "Pause"; return; }
   reading = true; paused = false;
   readBtn.textContent = "Pause";
-  document.body.classList.remove("open");
+  setSheet(false);
   speakSentence(current > -1 ? tokens[current].sentence : 0, true);
 }
 
@@ -717,8 +760,56 @@ textEl.addEventListener("keydown", function(e){
 
 /* ---------------- controls ---------------- */
 
-$("handle").addEventListener("click", function(){ document.body.classList.toggle("open"); });
-$("scrim").addEventListener("click", function(){ document.body.classList.remove("open"); });
+/* the settings sheet */
+function sheetOpen(){ return document.body.classList.contains("open"); }
+
+function setSheet(open){
+  document.body.classList.toggle("open", open);
+  $("settingsBtn").setAttribute("aria-expanded", open ? "true" : "false");
+  $("sheet").inert = !open;
+  $("stage").inert = open;
+}
+
+$("settingsBtn").addEventListener("click", function(){ setSheet(!sheetOpen()); });
+$("scrim").addEventListener("click", function(){ setSheet(false); });
+
+/* like an iOS sheet: tap the grabber to close it, or drag it up and let go */
+(function(){
+  var sheet = $("sheet"), grab = $("grabber");
+  var startY = 0, dy = 0, t0 = 0, dragging = false, moved = false;
+
+  grab.addEventListener("touchstart", function(e){
+    if (!sheetOpen()) return;
+    dragging = true; moved = false; dy = 0;
+    startY = e.touches[0].clientY; t0 = Date.now();
+    sheet.classList.add("dragging");
+  }, { passive: true });
+
+  grab.addEventListener("touchmove", function(e){
+    if (!dragging) return;
+    e.preventDefault();
+    dy = Math.min(0, e.touches[0].clientY - startY);   /* upwards only */
+    if (dy < -6) moved = true;
+    sheet.style.transform = "translateY(" + dy + "px)";
+  }, { passive: false });
+
+  function release(){
+    if (!dragging) return;
+    dragging = false;
+    sheet.classList.remove("dragging");
+    sheet.style.transform = "";
+    var speed = -dy / Math.max(1, Date.now() - t0);   /* px per ms */
+    if (-dy > Math.min(120, sheet.offsetHeight * 0.25) || (moved && speed > 0.6)) setSheet(false);
+    setTimeout(function(){ moved = false; }, 400);
+  }
+  grab.addEventListener("touchend", release);
+  grab.addEventListener("touchcancel", release);
+
+  grab.addEventListener("click", function(){
+    if (moved) return;   /* the end of a drag, not a tap */
+    setSheet(false);
+  });
+})();
 
 (function(){
   var wrap = $("bands");
@@ -784,7 +875,6 @@ $("edit").addEventListener("click", function(){
   $("src").value = recall("text", DEFAULT_TEXT);
   $("editor").classList.add("open");
   document.body.classList.add("locked");
-  $("src").focus();
 });
 $("back").addEventListener("click", function(){
   $("editor").classList.remove("open");
@@ -793,7 +883,6 @@ $("back").addEventListener("click", function(){
 
 $("clear").addEventListener("click", function(){
   $("src").value = "";
-  $("src").focus();
 });
 $("save").addEventListener("click", function(){
   var t = $("src").value.trim() || DEFAULT_TEXT;
@@ -801,7 +890,7 @@ $("save").addEventListener("click", function(){
   tokenize(t);
   $("editor").classList.remove("open");
   document.body.classList.remove("locked");
-  if (narrow.matches) document.body.classList.remove("open");
+  setSheet(false);
   window.scrollTo(0, 0);
 });
 
@@ -810,8 +899,12 @@ window.addEventListener("keydown", function(e){
   if (e.code === "Space"){ e.preventDefault(); play(); }
   if (e.key === "Escape"){
     stopAll(); clearWord(); setLive(-1);
-    $("editor").classList.remove("open");
-    document.body.classList.remove("locked");
+    if ($("editor").classList.contains("open")){
+      $("editor").classList.remove("open");
+      document.body.classList.remove("locked");
+    } else {
+      setSheet(false);
+    }
   }
 });
 
@@ -820,9 +913,7 @@ window.addEventListener("keydown", function(e){
 if (synth){ pickVoice(); synth.onvoiceschanged = pickVoice; }
 setBand(parseInt(recall("band","0"), 10) || 0);
 tokenize(recall("text", DEFAULT_TEXT));
-
-/* open on a big screen, closed on a phone so the text is what you see first */
-if (narrow.matches) document.body.classList.remove("open");
+setSheet(false);
 
 })();
 </script>
