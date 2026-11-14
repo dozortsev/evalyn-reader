@@ -437,10 +437,11 @@ body:not(.maths) .maths-only{ display: none !important; }
 }
 #pad button:hover{ background: var(--hover); }
 #pad button:active{ transform: scale(.95); }
-/* last two rows: 0 beside a double-width delete, then check across the whole width */
+/* last two rows: a double-width 0 beside delete, then = across the whole width */
 #pad .ok{ grid-column: 1 / -1; background: var(--band); color: var(--band-ink); border-color: transparent; font-weight: 700; }
 #pad .ok:hover{ background: var(--band); filter: brightness(1.06); }
-#pad .del{ grid-column: span 2; color: var(--ink-soft); }
+#pad button[data-k="0"]{ grid-column: span 2; }
+#pad .del{ color: var(--ink-soft); }
 
 /* landscape screens up to 900px tall (phones, iPad, laptop): number pad
    beside the sum, so the five rows of buttons always fit */
@@ -1048,7 +1049,7 @@ var YES_MSG   = ["Yes! You got it!", "Well done!", "Spot on!", "You worked it ou
 var NO_EMOJI  = ["\u{1F914}"];   /* wrong answers: always the thinking face, so it reads clearly */
 var NO_MSG    = ["Not quite. Have another go!", "Oops! Try again!", "Hmm, let's check again!"];
 
-var M = { nums: [], ops: [], answer: 0, typed: "", tries: 0, locked: false, last: "", timer: null };
+var M = { nums: [], ops: [], total: 0, hide: -1, answer: 0, typed: "", tries: 0, locked: false, last: "", timer: null };
 
 function rnd(a, b){ return a + Math.floor(Math.random() * (b - a + 1)); }
 function pick(list){ return list[Math.floor(Math.random() * list.length)]; }
@@ -1121,7 +1122,8 @@ function renderTyped(){
   box.classList.toggle("empty", M.typed === "");
 }
 
-/* builds "3 + 4 = [ ]" and sizes it so even four numbers fit on a phone */
+/* builds "3 + 4 = [ ]", or "3 + [ ] = 7" when a number is hidden,
+   and sizes it so even four numbers fit on a phone */
 function renderSum(){
   var el = $("sum"), ems = 0, parts = 0;
   el.innerHTML = "";
@@ -1134,10 +1136,12 @@ function renderSum(){
   }
   M.nums.forEach(function(n, i){
     if (i) add("op", M.ops[i - 1], 0.62);
-    add("num", String(n), 0.58 * String(n).length);
+    if (i === M.hide) add("answer", "", 1.75);
+    else add("num", String(n), 0.58 * String(n).length);
   });
   add("op", "=", 0.62);
-  add("answer", "", 1.75);
+  if (M.hide >= 0) add("num", String(M.total), 0.58 * String(M.total).length);
+  else add("answer", "", 1.75);
   ems += 0.32 * (parts - 1);
   el.style.setProperty("--ems", (ems * 1.06).toFixed(2));
   renderTyped();
@@ -1153,15 +1157,20 @@ function setFeedback(emoji, msg, grow){
   if (emoji) f.classList.add("pop");
 }
 
+/* About 3 in 10 two-number sums hide one of the numbers instead of the
+   answer (7 + ? = 10, ? − 3 = 4): the part–whole problems Year 1 practises.
+   M.answer is always the number she has to type; M.total is the result. */
 function newSum(){
   clearTimeout(M.timer);
-  var s, key, guard = 0;
+  var s, hide, key, guard = 0;
   do {
     s = makeSum();
-    key = s.nums.join(",") + s.ops.join("");
+    hide = (s.nums.length === 2 && Math.random() < 0.3) ? rnd(0, 1) : -1;
+    key = s.nums.join(",") + s.ops.join("") + hide;
   } while (key === M.last && ++guard < 20);
   M.last = key;
-  M.nums = s.nums; M.ops = s.ops; M.answer = s.answer;
+  M.nums = s.nums; M.ops = s.ops; M.total = s.answer; M.hide = hide;
+  M.answer = hide >= 0 ? s.nums[hide] : s.answer;
   M.typed = ""; M.tries = 0; M.locked = false;
   setFeedback("", "");
   renderSum();
