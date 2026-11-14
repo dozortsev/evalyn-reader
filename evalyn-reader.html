@@ -397,7 +397,7 @@ body:not(.maths) .maths-only{ display: none !important; }
 /* the space is tall enough for the thinking face to grow into: it grows
    upwards from its base, so the message and number pad never move */
 #feedback{
-  height: clamp(130px, 23vh, 240px);
+  height: clamp(120px, 20vh, 220px);
   display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
   gap: 8px;
   text-align: center;
@@ -425,7 +425,7 @@ body:not(.maths) .maths-only{ display: none !important; }
   width: min(100%, 340px);
 }
 #pad button{
-  height: clamp(56px, 8.5vh, 78px);
+  height: clamp(52px, 7.5vh, 76px);
   font-family: "Andika", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: clamp(26px, 4vh, 34px);
   line-height: 1;
@@ -437,25 +437,27 @@ body:not(.maths) .maths-only{ display: none !important; }
 }
 #pad button:hover{ background: var(--hover); }
 #pad button:active{ transform: scale(.95); }
-#pad .ok{ background: var(--band); color: var(--band-ink); border-color: transparent; font-weight: 700; }
+/* last two rows: 0 beside a double-width delete, then check across the whole width */
+#pad .ok{ grid-column: 1 / -1; background: var(--band); color: var(--band-ink); border-color: transparent; font-weight: 700; }
 #pad .ok:hover{ background: var(--band); filter: brightness(1.06); }
-#pad .del{ color: var(--ink-soft); }
+#pad .del{ grid-column: span 2; color: var(--ink-soft); }
 
-/* short landscape phones: number pad beside the sum */
-@media (orientation: landscape) and (max-height: 520px){
+/* landscape screens up to 900px tall (phones, iPad, laptop): number pad
+   beside the sum, so the five rows of buttons always fit */
+@media (orientation: landscape) and (max-height: 900px){
   body.maths #maths{
     display: grid;
     grid-template-columns: minmax(0,1fr) auto;
     align-content: center;
     justify-items: center;
-    column-gap: 24px; row-gap: 8px;
+    column-gap: clamp(24px, 5vw, 72px); row-gap: 8px;
     padding-top: calc(env(safe-area-inset-top,0px) + 52px);
     padding-bottom: calc(env(safe-area-inset-bottom,0px) + 12px);
   }
-  .sum{ grid-column: 1; font-size: min(84px, calc((100vw - 420px) / var(--ems, 7))); }
-  #feedback{ grid-column: 1; height: 150px; }
-  #pad{ grid-column: 2; grid-row: 1 / span 2; width: 300px; }
-  #pad button{ height: 54px; }
+  .sum{ grid-column: 1; font-size: min(150px, 18vh, calc((100vw - 460px) / var(--ems, 7))); }
+  #feedback{ grid-column: 1; }
+  #pad{ grid-column: 2; grid-row: 1 / span 2; width: clamp(280px, 30vw, 360px); }
+  #pad button{ height: clamp(48px, 9.5vh, 76px); }
 }
 
 /* in maths mode the settings sheet only carries what maths uses */
@@ -488,8 +490,8 @@ body:not(.maths) .maths-only{ display: none !important; }
     <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
     <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
     <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
-    <button data-k="del" class="del" aria-label="Delete">&#9003;</button>
     <button data-k="0">0</button>
+    <button data-k="del" class="del" aria-label="Delete">&#9003;</button>
     <button data-k="ok" class="ok" aria-label="Check">&#10003;</button>
   </div>
 </main>
@@ -1187,7 +1189,7 @@ function checkAnswer(){
   if (parseInt(M.typed, 10) === M.answer){
     box.classList.add("right");
     setFeedback(pick(YES_EMOJI), pick(YES_MSG));
-    M.timer = setTimeout(newSum, 1700);
+    M.timer = setTimeout(newSum, 2200);
     return;
   }
 
