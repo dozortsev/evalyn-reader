@@ -21,6 +21,7 @@
   --hover-shadow: rgba(30,33,39,.10);
   --chrome: rgba(251,250,247,.94);
   --rule: rgba(30,33,39,.12);
+  --veil: rgba(251,250,247,.86);
 
   --size: 56px;
   --measure: 26ch;
@@ -39,6 +40,7 @@
   --hover-shadow: rgba(0,0,0,.45);
   --chrome: rgba(23,27,33,.96);
   --rule: rgba(255,255,255,.14);
+  --veil: rgba(23,27,33,.88);
 }
 
 *,*::before,*::after{ box-sizing: inherit; }
@@ -157,7 +159,7 @@ body.open #scrim{ opacity: 1; pointer-events: auto; }
   display: flex; align-items: center; gap: 8px;
 }
 
-/* Reading | Maths switcher, the same height and type as the Settings button */
+/* Reading | Maths | Words switcher, the same height and type as the Settings button */
 #modes{
   display: inline-flex; gap: 2px; padding: 3px;
   background: var(--chrome);
@@ -461,9 +463,85 @@ body:not(.maths) .maths-only{ display: none !important; }
   #pad button{ height: clamp(48px, 9.5vh, 76px); }
 }
 
-/* in maths mode the settings sheet only carries what maths uses */
+/* ---------- words: a globe of words to spin, zoom and pick from ---------- */
+
+#words{
+  display: none;
+  position: fixed; inset: 0;
+  overflow: hidden;
+  touch-action: none;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+body.words{ overflow: hidden; }
+body.words #words{ display: block; }
+body.words #stage,
+body.words #count,
+body.words .reading-only{ display: none !important; }
+
+#globe{
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+#globe.grabbing{ cursor: grabbing; }
+
+/* the picked word, big and clear in the middle, to copy onto paper */
+#wordCard{
+  position: absolute; inset: 0;
+  z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: var(--veil);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  opacity: 0; visibility: hidden;
+  transition: opacity .25s ease, visibility 0s linear .25s;
+  touch-action: none;
+  cursor: pointer;
+}
+#wordCard.show{ opacity: 1; visibility: visible; transition: opacity .25s ease; }
+#wordBig{
+  font-family: "Andika", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 120px;             /* set in JS so every word fits the screen */
+  line-height: 1.25;
+  color: var(--ink);
+  white-space: nowrap;
+  transform-origin: 50% 50%;
+  transition: transform .6s cubic-bezier(.2,.9,.25,1);
+}
+
+/* Random: hidden while the globe spins, and for a few seconds after */
+#wordRandom{
+  position: absolute; left: 50%;
+  bottom: calc(env(safe-area-inset-bottom,0px) + clamp(18px, 4vh, 40px));
+  z-index: 3;
+  transform: translateX(-50%);
+  font-size: 20px; font-weight: 600; letter-spacing: .02em; line-height: 1;
+  white-space: nowrap;
+  padding: 17px 32px;
+  border: none; border-radius: 999px;
+  background: var(--band); color: var(--band-ink);
+  box-shadow: 0 14px 32px -14px var(--band), 0 2px 10px rgba(0,0,0,.12);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity .3s ease, transform .35s cubic-bezier(.2,1.3,.4,1), filter .15s ease, visibility 0s linear 0s;
+}
+#wordRandom:hover{ background: var(--band); filter: brightness(1.06); }
+#wordRandom:active{ transform: translateX(-50%) scale(.95); }
+#wordRandom.away{
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transform: translateX(-50%) translateY(18px) scale(.9);
+  transition: opacity .25s ease, transform .25s ease, visibility 0s linear .25s;
+}
+
+/* in maths and words modes the settings sheet only carries what they use */
 @media (min-width: 720px){
-  body.maths #panel{ grid-template-columns: minmax(0,1fr); max-width: 460px; }
+  body.maths #panel,
+  body.words #panel{ grid-template-columns: minmax(0,1fr); max-width: 460px; }
 }
 
 @media (prefers-reduced-motion: reduce){
@@ -497,12 +575,19 @@ body:not(.maths) .maths-only{ display: none !important; }
   </div>
 </main>
 
+<main id="words" aria-label="Words">
+  <canvas id="globe" role="img" aria-label="A globe of words. Drag to spin it, pinch to zoom, tap a word to see it big."></canvas>
+  <div id="wordCard" aria-live="polite"><div id="wordBig"></div></div>
+  <button id="wordRandom">&#x1F3B2; Random</button>
+</main>
+
 <div id="scrim"></div>
 
 <div id="topbar">
   <div id="modes" role="group" aria-label="Mode">
     <button id="modeReading" aria-pressed="true">Reading</button>
     <button id="modeMaths" aria-pressed="false">Maths</button>
+    <button id="modeWords" aria-pressed="false">Words</button>
   </div>
   <button id="settingsBtn" aria-controls="sheet" aria-expanded="false">
     <span>Settings</span>
@@ -941,6 +1026,7 @@ function setSheet(open){
   $("sheet").inert = !open;
   $("stage").inert = open;
   $("maths").inert = open;
+  $("words").inert = open;
 }
 
 $("settingsBtn").addEventListener("click", function(){ setSheet(!sheetOpen()); });
@@ -1236,23 +1322,733 @@ $("pad").addEventListener("click", function(e){
   });
 })();
 
-/* ---------------- Reading | Maths ---------------- */
+/* ---------------- words: a globe of words ---------------- */
+
+/* The word pool, in globe order: word i sits on point i of a Fibonacci
+   sphere. The order was optimised beforehand so short and long words are
+   evenly mixed all over the globe: no clumps of three-letter words and no
+   clumps of long ones. */
+var WORDS = [
+  "tower", "twenty", "brushes", "ski", "rock", "stormy", "wonderful", "music", "marvellous",
+  "science", "batch", "strong", "cereal", "fairy", "guitar", "adventure", "curry", "toast",
+  "bicycle", "March", "lake", "karate", "sky", "jumped", "town", "keyboard", "sailor", "squirrel",
+  "tadpole", "Ireland", "classroom", "golf", "neighbour", "million", "sparkling", "mindful",
+  "peace", "dinosaur", "noodles", "bumblebee", "lettuce", "goose", "eight", "spider", "cupboard",
+  "Egypt", "summer", "Pluto", "wok", "auntie", "year", "otter", "shark", "dig", "carriage", "fizz",
+  "baker", "helpful", "shampoo", "fig", "pie", "wobbly", "trumpet", "tennis", "five", "jaguar",
+  "concert", "baby", "market", "mushroom", "joke", "magnet", "recipe", "violet", "marathon",
+  "Canada", "balance", "scientist", "diving", "building", "glitter", "flowers", "cottage", "spoon",
+  "blanket", "lollipop", "rainbow", "shell", "ukulele", "lovely", "tights", "bread", "pasta",
+  "hedgehog", "firefighter", "rhyme", "dreaming", "cucumber", "juice", "boots", "lamb",
+  "blackberry", "gigantic", "June", "lobster", "Thursday", "bathtub", "hide", "sphere", "fluff",
+  "skirt", "icy", "lemonade", "raisin", "kind", "spy", "parrot", "garlic", "newt", "rubber",
+  "classmate", "backpack", "lip", "sip", "honey", "pear", "whisper", "tiger", "hutch", "flamingo",
+  "oak", "winner", "aubergine", "shrimp", "lasagne", "relay", "pillow", "gorilla", "tortoise",
+  "trifle", "doughnut", "breeze", "buzzing", "singer", "holiday", "teacher", "melon", "egg",
+  "season", "cycling", "torch", "penguin", "mammoth", "three", "week", "owl", "bedroom",
+  "grateful", "whistling", "pretzel", "catch", "crunchy", "ten", "iguana", "basketball",
+  "universe", "flower", "kindness", "breathing", "looking", "boxes", "cheerful", "toy", "medal",
+  "seek", "avocado", "fridge", "xylophone", "Saturn", "ram", "lightning", "calendar", "one",
+  "superhero", "cub", "acorn", "rose", "seagull", "white", "piglet", "police", "cooking", "crown",
+  "walrus", "pyjamas", "cheese", "sparkler", "pentagon", "mud", "light", "lilac", "May", "Wales",
+  "spaceship", "cherry", "August", "Thames", "question", "fluffy", "giggling", "cupcake", "hip",
+  "round", "falcon", "goat", "knight", "duckling", "tiptoe", "fetch", "bridge", "flutter",
+  "marshmallow", "hoodie", "hamster", "conker", "pirate", "Tuesday", "favourite", "helmet",
+  "piano", "half", "funny", "bakery", "octopus", "exercise", "Neptune", "Pikachu", "palace",
+  "brush", "caramel", "woodpecker", "Friday", "boa", "compass", "cello", "chick", "leaf", "tube",
+  "plate", "pond", "curious", "water", "grandpa", "important", "clever", "honk", "saxophone",
+  "splits", "night", "mask", "climbing", "fly", "seven", "terrific", "tiara", "treasure",
+  "planetarium", "planting", "goggles", "ladder", "grape", "ray", "watering", "joyful", "joy",
+  "race", "fizzed", "jay", "pony", "submarine", "blueberry", "salad", "pudding", "somersault",
+  "riddle", "bluebell", "cinema", "ink", "canoe", "camel", "wagon", "notebook", "wriggle",
+  "valley", "house", "playful", "sausage", "breathe", "jigsaw", "secret", "calf", "hopping",
+  "burger", "inventor", "wiggle", "surprise", "sunset", "flute", "turtle", "Christmas", "orchard",
+  "sister", "stretch", "looked", "sunrise", "shadow", "Evalyn", "bell", "ring", "feather", "team",
+  "digger", "buzzed", "waterfall", "lunches", "sharing", "puzzle", "koala", "tomorrow", "computer",
+  "memory", "wig", "thinking", "panda", "robot", "yam", "running", "serve", "brown", "sparkle",
+  "eye", "scissors", "gardener", "ivy", "jumper", "breakfast", "grey", "swimsuit", "goldfish",
+  "swan", "hippo", "train", "gingerbread", "today", "alligator", "dessert", "bracelet", "Paris",
+  "France", "jaw", "seal", "zookeeper", "travel", "orb", "brave", "slippery", "kit", "autumn",
+  "hope", "mango", "Earth", "pink", "thousand", "bison", "envelope", "artist", "twig", "octagon",
+  "jug", "gem", "cuddle", "netball", "taxi", "ruler", "square", "experiment", "glider", "theatre",
+  "hexagon", "tumble", "planet", "Africa", "powerful", "pyramid", "zipper", "bucket", "fog",
+  "juggle", "badminton", "America", "smiling", "freezer", "wobble", "pigeon", "captain",
+  "ladybird", "basket", "koi", "pencil", "sea", "petal", "ewe", "dumpling", "think", "imagination",
+  "recorder", "chase", "October", "campfire", "pea", "fun", "chameleon", "court", "problem",
+  "smoothie", "firework", "quarter", "foxes", "diamond", "snake", "sandcastle", "sprinkle",
+  "coach", "olive", "kitten", "loud", "hour", "trainers", "cinnamon", "munch", "sheep",
+  "staircase", "web", "speedy", "recovery", "cricket", "China", "rhythm", "wonder", "oven",
+  "geography", "winter", "custard", "arrive", "carrot", "hum", "milkshake", "snowy", "tea",
+  "heavy", "sticky", "king", "puffin", "postcard", "giraffe", "maracas", "hairbrush", "nut",
+  "cosy", "mouse", "Brazil", "bow", "smile", "spring", "mermaid", "weekend", "skating", "sailing",
+  "jacket", "cloudy", "pumpkin", "magic", "stadium", "metre", "bun", "art", "zip", "dancing",
+  "hummingbird", "celebration", "crunch", "journey", "carpet", "key", "sunshine", "rectangle",
+  "owlet", "hungry", "judo", "black", "glue", "Halloween", "delicious", "baseball", "kicking",
+  "Sunday", "boredom", "story", "proud", "van", "drawer", "wind", "splashing", "toothbrush",
+  "melody", "Asia", "gentle", "supermarket", "balloon", "daffodil", "Greece", "leaves", "archery",
+  "farmer", "calm", "mountain", "watermelon", "strawberry", "dentist", "soft", "baking", "heart",
+  "elephant", "rice", "words", "dream", "peacock", "new", "waffle", "pinecone", "coffee",
+  "Australia", "spelling", "player", "tug", "apple", "daisy", "wax", "magical", "noisy", "easel",
+  "road", "raincoat", "search", "laughter", "laughing", "fix", "boat", "parcel", "giant", "root",
+  "sand", "wish", "meadow", "November", "airport", "radish", "sticker", "street", "park", "button",
+  "spaghetti", "stone", "pod", "slug", "month", "elm", "Murka", "invention", "umbrella", "jet",
+  "banana", "clock", "poster", "listening", "brother", "celery", "bumpy", "queen", "station",
+  "satellite", "cylinder", "quiet", "leopard", "silence", "lunchbox", "garage", "sparkly",
+  "magenta", "pebble", "January", "sleepy", "invisible", "raspberry", "snowball", "teapot",
+  "gloves", "lantern", "ambulance", "hockey", "peach", "colour", "lemon", "English", "friendship",
+  "yesterday", "blossom", "Wednesday", "witch", "Japan", "arm", "cube", "wren", "page", "forest",
+  "attic", "odd", "tide", "castle", "England", "champion", "sleeping", "two", "oar", "rabbit",
+  "boats", "plum", "elf", "soup", "lid", "wolf", "lemur", "hugging", "incredible", "hospital",
+  "llama", "toe", "helicopter", "cloud", "hut", "puppy", "elk", "galaxy", "mirror", "mindfulness",
+  "Hong Kong", "history", "little", "moose", "waving", "telescope", "excited", "mix", "cod", "ear",
+  "Germany", "vanilla", "peaceful", "zoo", "yak", "bouncy", "flying", "dishes", "spinning",
+  "excellent", "frosty", "paint", "beach", "builder", "thirsty", "fantastic", "pounce", "jungle",
+  "gymnastics", "puppet", "butter", "rainy", "lighthouse", "giggly", "shout", "snowflake",
+  "motorbike", "tambourine", "microwave", "surfing", "rowing", "constellation", "pocket", "sponge",
+  "shy", "turquoise", "marble", "sport", "aquarium", "whale", "celebrate", "handstand", "tiny",
+  "dry", "frost", "four", "letter", "skin", "dark", "tap", "eel", "bookshelf", "beans", "yoghurt",
+  "cartwheel", "family", "kick", "ant", "painting", "eclipse", "ship", "six", "mop", "gerbil",
+  "mittens", "panther", "raccoon", "glasses", "turnip", "yacht", "apricot", "dragonfly", "gnu",
+  "July", "game", "rain", "seahorse", "bagel", "counting", "singing", "bottle", "bright", "smooth",
+  "cookie", "language", "soap", "emu", "kangaroo", "relax", "birthday", "sweets", "trampoline",
+  "love", "alpaca", "playground", "Europe", "tomato", "brain", "crisps", "ape", "island", "gym",
+  "Saturday", "costume", "swimming", "eagle", "beaver", "patience", "doctor", "Poland", "Spain",
+  "February", "dress", "icicle", "paper", "fizzing", "binoculars", "Wimbledon", "tidying",
+  "hovercraft", "golden", "kiss", "aeroplane", "weather", "clapping", "Duffy", "hammer", "silly",
+  "London", "starfish", "patch", "squishy", "careful", "library", "skunk", "bathroom", "scarf",
+  "ocean", "cap", "dragon", "happy", "phonics", "maths", "hill", "pepper", "field", "oval",
+  "cheetah", "explorer", "farm", "doe", "popcorn", "salmon", "rug", "certificate", "dolphin",
+  "muscles", "lion", "hop", "trophy", "parsnip", "princess", "jam", "helping", "courgette", "nine",
+  "circle", "invent", "Scotland", "mystery", "silver", "purple", "shorts", "cave", "shower", "wag",
+  "crocodile", "dinner", "lunch", "lizard", "detective", "bowl", "potato", "Mercury", "snail",
+  "ice", "midnight", "lorry", "comet", "Kyiv", "bus", "kitchen", "omelette", "morning", "porridge",
+  "amazing", "chimpanzee", "bee", "snowman", "grandma", "catching", "rolling", "grass", "India",
+  "necklace", "pancake", "raindrop", "special", "porcupine", "splash", "cousin", "towel",
+  "glittery", "volcano", "snow", "desert", "hug", "wizard", "astronaut", "snack", "learn",
+  "village", "star", "beautiful", "Ukrainian", "rocket", "uncle", "robin", "cab", "April", "sofa",
+  "believe", "return", "violin", "Mars", "scone", "jumping", "reading", "nap", "crow", "tablet",
+  "driver", "drum", "rugby", "moss", "Ukraine", "scamper", "pineapple", "monkey", "platypus",
+  "slippers", "jellyfish", "sushi", "croissant", "harp", "screen", "dancer", "energy", "circus",
+  "ditch", "muffin", "churches", "digging", "Jupiter", "donkey", "armadillo", "kiwi", "beetroot",
+  "stamp", "thankful", "sloth", "duvet", "prince", "floating", "dew", "football", "raven",
+  "brilliant", "storm", "match", "foal", "tent", "unicorn", "helped", "switch", "jelly", "scooter",
+  "referee", "ballet", "cabbage", "Venus", "chapter", "seed", "curtain", "visit", "father",
+  "pizza", "chocolate", "tie", "poem", "September", "igloo", "kettle", "jog", "homework",
+  "thunder", "orchestra", "branch", "river", "wave", "yummy", "hundred", "chair", "skiing",
+  "bubble", "broccoli", "sentence", "crimson", "slow", "shiny", "imagine", "twinkle", "December",
+  "drawing", "racket", "Monday", "skipping", "whistle", "ferry", "pilot", "bank", "chilly",
+  "discovery", "present", "paw"
+];
+
+var Words = (function(){
+  var canvas = $("globe"), card = $("wordCard"), big = $("wordBig"), btn = $("wordRandom");
+  var ctx = canvas.getContext("2d");
+  var N = WORDS.length, TAU = Math.PI * 2;
+  var REF = 20;              /* words are drawn at 20px, then scaled to size */
+  var D = 3.6;               /* camera distance in globe radii: a little perspective */
+  var ZMIN = 0.6, ZMAX = 4;  /* pinch range */
+  var AUTO = -0.1;           /* the slow idle spin, radians a second */
+  var reduce = !smooth;
+
+  var P = new Float64Array(N * 3);   /* points on the unit sphere */
+  var EM = new Float64Array(N);      /* each word's width, in em */
+  var X = new Float64Array(N), Y = new Float64Array(N), Z = new Float64Array(N), FS = new Float64Array(N);
+  var VIS = new Float64Array(N);     /* how clearly each word shows: 0 faint … 1 clear, eased */
+  var ON = new Uint8Array(N), WAS = new Uint8Array(N);
+  var BX0 = new Float64Array(N), BX1 = new Float64Array(N), BY0 = new Float64Array(N), BY1 = new Float64Array(N);
+  var cand = [], placed = [];
+  var CELL = 56, cols = 0, grid = [];
+
+  var Rm = [1,0,0, 0,1,0, 0,0,1];    /* rotation, globe to view: x right, y up, z towards you */
+  var omega = [0, 0, 0];             /* spin, a rotation vector in radians a second */
+  var zoom = 1, dpr = 1, W = 0, H = 0, cx = 0, cy = 0, R0 = 100, fontBase = 12;
+  var ready = false, active = false, raf = 0, lastT = 0, lastInput = -1e9, frames = 0;
+  var ink = "#1E2127", band = "#F06FA8", bandInk = "#3A0E21";
+  var spin = null, intro = null, hi = -1, hiUntil = 0;
+  var cardOpen = false, cardAt = 0, away = false, awayTimer = 0, landTimer = 0;
+  var ptrs = {}, nPtr = 0, drag = null, pinch = null, samples = [], gest = null;
+
+  function clamp(v, a, b){ return v < a ? a : (v > b ? b : v); }
+  function sstep(t){ t = clamp(t, 0, 1); return t * t * (3 - 2 * t); }
+
+  /* ---- rotations: 3×3, row-major ---- */
+
+  function rot(ax, ay, az, ang){   /* about a unit axis */
+    var c = Math.cos(ang), s = Math.sin(ang), t = 1 - c;
+    return [t*ax*ax + c,    t*ax*ay - s*az, t*ax*az + s*ay,
+            t*ax*ay + s*az, t*ay*ay + c,    t*ay*az - s*ax,
+            t*ax*az - s*ay, t*ay*az + s*ax, t*az*az + c];
+  }
+  function mul(A, B){
+    var o = new Array(9);
+    for (var r = 0; r < 3; r++) for (var c = 0; c < 3; c++)
+      o[r*3+c] = A[r*3]*B[c] + A[r*3+1]*B[3+c] + A[r*3+2]*B[6+c];
+    return o;
+  }
+  function turn(rx, ry, rz){       /* apply a small rotation, in view space */
+    var a = Math.sqrt(rx*rx + ry*ry + rz*rz);
+    if (a > 1e-9) Rm = mul(rot(rx/a, ry/a, rz/a, a), Rm);
+  }
+  function tidy(){                  /* keep it a true rotation despite rounding drift */
+    var a = [Rm[0], Rm[1], Rm[2]], b = [Rm[3], Rm[4], Rm[5]];
+    var la = Math.hypot(a[0], a[1], a[2]);
+    a = [a[0]/la, a[1]/la, a[2]/la];
+    var d = a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+    b = [b[0] - d*a[0], b[1] - d*a[1], b[2] - d*a[2]];
+    var lb = Math.hypot(b[0], b[1], b[2]);
+    b = [b[0]/lb, b[1]/lb, b[2]/lb];
+    Rm = [a[0], a[1], a[2], b[0], b[1], b[2],
+          a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]];
+  }
+
+  /* ---- set-up ---- */
+
+  function init(){
+    var ga = Math.PI * (3 - Math.sqrt(5));
+    for (var i = 0; i < N; i++){
+      var y = 1 - 2 * (i + 0.5) / N, r = Math.sqrt(1 - y * y), th = ga * i;
+      P[i*3] = Math.cos(th) * r; P[i*3+1] = y; P[i*3+2] = Math.sin(th) * r;
+    }
+    Rm = rot(1, 0, 0, 0.42);   /* tipped towards you a little */
+    measure();
+    /* word widths are measured in Andika: measure again once it has loaded,
+       even if the font's stylesheet arrives after the globe first appears */
+    if (document.fonts && document.fonts.load){
+      var remeasure = function(){ measure(); request(); };
+      var fetchFont = function(){ document.fonts.load("400 20px Andika").then(remeasure, function(){}); };
+      fetchFont();
+      if (document.readyState !== "complete") window.addEventListener("load", fetchFont);
+      if (document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", remeasure);
+    }
+    new MutationObserver(function(){ colours(); request(); })
+      .observe(root, { attributes: true, attributeFilter: ["data-surface", "style"] });
+    ready = true;
+  }
+
+  function measure(){
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.font = "400 " + REF + "px Andika, Lexend, sans-serif";
+    for (var i = 0; i < N; i++) EM[i] = ctx.measureText(WORDS[i]).width / REF;
+  }
+
+  function colours(){
+    var cs = getComputedStyle(root);
+    ink = cs.getPropertyValue("--ink").trim() || ink;
+    band = cs.getPropertyValue("--band").trim() || band;
+    bandInk = cs.getPropertyValue("--band-ink").trim() || bandInk;
+  }
+
+  function resize(){
+    var r = canvas.getBoundingClientRect();
+    W = r.width || window.innerWidth;
+    H = r.height || window.innerHeight;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    cx = W / 2;
+    cy = H / 2 - Math.min(24, H * 0.05);   /* a little high, leaving room for Random */
+    R0 = Math.min(W * 0.48, H * 0.38);
+    fontBase = clamp(R0 * 0.062, 8, 30);
+    cols = Math.ceil(W / CELL) + 1;
+    grid = [];
+    for (var k = 0, n = cols * (Math.ceil(H / CELL) + 1); k < n; k++) grid.push([]);
+  }
+
+  /* ---- every frame ---- */
+
+  function request(){ if (active && !raf) raf = requestAnimationFrame(frame); }
+
+  function frame(now){
+    raf = 0;
+    var dt = lastT ? Math.min(0.05, (now - lastT) / 1000) : 1 / 60;
+    lastT = now;
+    project(step(now, dt));
+    place();
+    paint(now, dt);
+    if (more()) raf = requestAnimationFrame(frame);
+    else lastT = 0;
+  }
+
+  /* moves the globe on; returns a size factor for the intro and the spin */
+  function step(now, dt){
+    var s = 1;
+    if (intro){
+      var ti = (now - intro.t0) / 900;
+      if (ti >= 1) intro = null;
+      else s *= 0.5 + 0.5 * (1 - Math.pow(1 - ti, 3));
+    }
+    if (spin){
+      var t = Math.min(1, (now - spin.t0) / spin.dur);
+      /* a quick wind-up, a fast spin, then a long slow settle onto the word */
+      var e = reduce ? sstep(t) : 1 - Math.pow(1 - t, 5) * (1 + 5 * t);
+      Rm = mul(rot(1, 0, 0, spin.tilt * e), mul(rot(0, 1, 0, spin.theta * e), spin.R));
+      if (!reduce) s *= 1 - 0.12 * Math.sin(Math.PI * t);
+      if (t > 0.7) hi = spin.target;
+      if (t >= 1) land();
+      return s;
+    }
+    if (!drag && !pinch){
+      /* a flick slows down gently; after a few quiet seconds the idle spin comes back */
+      var gain = reduce ? 0 : sstep((now - lastInput - 2500) / 1500);
+      var k = Math.exp(-dt / 0.9), auto = AUTO * gain;
+      omega = [omega[0] * k, auto + (omega[1] - auto) * k, omega[2] * k];
+      turn(omega[0] * dt, omega[1] * dt, omega[2] * dt);
+    }
+    if (++frames % 120 === 0) tidy();
+    return s;
+  }
+
+  function project(s){
+    var Rs = R0 * zoom * s, F = fontBase * Math.sqrt(zoom) * s, m = Rm;
+    for (var i = 0, p = 0; i < N; i++, p += 3){
+      var px = P[p], py = P[p+1], pz = P[p+2];
+      var vx = m[0]*px + m[1]*py + m[2]*pz;
+      var vy = m[3]*px + m[4]*py + m[5]*pz;
+      var vz = m[6]*px + m[7]*py + m[8]*pz;
+      var f = D / (D - vz);
+      X[i] = cx + vx * Rs * f;
+      Y[i] = cy - vy * Rs * f;
+      Z[i] = vz;
+      FS[i] = F * f;
+    }
+  }
+
+  /* Only words with room around them show clearly; the rest stay faint, so
+     the globe reads cleanly at any zoom. Words already clear keep their
+     place, which stops them flickering as the globe turns. */
+  function tryPlace(i, grow){
+    var fs = FS[i] * grow, hw = EM[i] * fs * 0.5 + fs * 0.28, hh = fs * 0.66;
+    var x0 = X[i] - hw, x1 = X[i] + hw, y0 = Y[i] - hh, y1 = Y[i] + hh;
+    if (x0 < 4 || y0 < 4 || x1 > W - 4 || y1 > H - 4) return false;
+    var c0 = Math.floor(x0 / CELL), c1 = Math.floor(x1 / CELL);
+    var r0 = Math.floor(y0 / CELL), r1 = Math.floor(y1 / CELL), r, c, k, cell;
+    for (r = r0; r <= r1; r++) for (c = c0; c <= c1; c++){
+      cell = grid[r * cols + c];
+      for (k = 0; k < cell.length; k++){
+        var j = cell[k];
+        if (x0 < BX1[j] && x1 > BX0[j] && y0 < BY1[j] && y1 > BY0[j]) return false;
+      }
+    }
+    BX0[i] = x0; BX1[i] = x1; BY0[i] = y0; BY1[i] = y1;
+    for (r = r0; r <= r1; r++) for (c = c0; c <= c1; c++) grid[r * cols + c].push(i);
+    return true;
+  }
+
+  function place(){
+    for (var g = 0; g < grid.length; g++) grid[g].length = 0;
+    cand.length = 0; placed.length = 0;
+    for (var i = 0; i < N; i++){
+      WAS[i] = ON[i]; ON[i] = 0;
+      if (Z[i] > 0.1 && i !== hi) cand.push(i);
+    }
+    cand.sort(function(a, b){ return (WAS[b] - WAS[a]) || (Z[b] - Z[a]); });
+    if (hi >= 0 && Z[hi] > 0 && tryPlace(hi, 1.3)){ ON[hi] = 1; placed.push(hi); }
+    for (var k = 0; k < cand.length; k++){
+      if (tryPlace(cand[k], 1)){ ON[cand[k]] = 1; placed.push(cand[k]); }
+    }
+  }
+
+  function paint(now, dt){
+    var ease = 1 - Math.exp(-dt * 9);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = "400 " + REF + "px Andika, Lexend, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = ink;
+    if (hi >= 0 && !spin && !cardOpen && now > hiUntil) hi = -1;
+    for (var i = 0; i < N; i++){
+      VIS[i] += (ON[i] - VIS[i]) * ease;
+      if (i === hi) continue;
+      var z = Z[i], t = (z + 1) * 0.5;
+      var faint = 0.03 + 0.09 * t * Math.sqrt(t);            /* faint all round, a touch darker in front */
+      var clear = 0.5 + 0.5 * sstep((z - 0.1) / 0.5);        /* clear words fade in towards the middle */
+      var a = faint + (clear - faint) * VIS[i];
+      if (a < 0.012) continue;
+      var fs = FS[i], hw = EM[i] * fs * 0.5;
+      if (X[i] + hw < 0 || X[i] - hw > W || Y[i] + fs < 0 || Y[i] - fs > H) continue;
+      var sc = fs / REF * dpr;
+      ctx.globalAlpha = a;
+      ctx.setTransform(sc, 0, 0, sc, X[i] * dpr, Y[i] * dpr);
+      ctx.fillText(WORDS[i], 0, 0);
+    }
+    if (hi >= 0 && Z[hi] > 0) pill(hi);
+    ctx.globalAlpha = 1;
+  }
+
+  /* the chosen word, marked in the highlight colour */
+  function pill(i){
+    var fs = FS[i] * 1.15, w = EM[i] * fs + fs * 0.8, h = fs * 1.5, x = X[i], y = Y[i], r = h / 2;
+    ctx.globalAlpha = 1;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = band;
+    ctx.beginPath();
+    ctx.moveTo(x - w/2 + r, y - h/2);
+    ctx.arcTo(x + w/2, y - h/2, x + w/2, y + h/2, r);
+    ctx.arcTo(x + w/2, y + h/2, x - w/2, y + h/2, r);
+    ctx.arcTo(x - w/2, y + h/2, x - w/2, y - h/2, r);
+    ctx.arcTo(x - w/2, y - h/2, x + w/2, y - h/2, r);
+    ctx.closePath();
+    ctx.fill();
+    var sc = fs / REF * dpr;
+    ctx.fillStyle = bandInk;
+    ctx.setTransform(sc, 0, 0, sc, x * dpr, y * dpr);
+    ctx.fillText(WORDS[i], 0, 0);
+    ctx.fillStyle = ink;
+  }
+
+  /* keep drawing only while something moves: still while the big word is up */
+  function more(){
+    if (!active) return false;
+    if (spin || drag || pinch || intro) return true;
+    if (cardOpen) return false;
+    if (!reduce) return true;
+    if (Math.abs(omega[0]) + Math.abs(omega[1]) + Math.abs(omega[2]) > 1e-3) return true;
+    for (var i = 0; i < N; i++) if (Math.abs(VIS[i] - ON[i]) > 0.01) return true;
+    return hi >= 0;
+  }
+
+  /* ---- the big word ---- */
+
+  function openCard(i, x, y, fs){
+    var size = Math.max(28, Math.min(240, H * 0.3, (Math.min(W, 1400) - 48) / Math.max(EM[i], 1)));
+    big.textContent = WORDS[i];
+    big.style.fontSize = size.toFixed(1) + "px";
+    big.style.transition = "none";
+    big.style.transform = "none";
+    card.classList.add("show");
+    cardOpen = true; cardAt = performance.now();
+    /* grow out of the globe: start where the word is, at the size it is there */
+    var r = big.getBoundingClientRect();
+    big.style.transform = "translate(" + (x - r.left - r.width / 2).toFixed(1) + "px," +
+                          (y - r.top - r.height / 2).toFixed(1) + "px) scale(" +
+                          Math.max(0.04, fs / size).toFixed(3) + ")";
+    void big.offsetWidth;
+    big.style.transition = "";
+    big.style.transform = "";
+  }
+
+  function closeCard(){
+    if (!cardOpen) return;
+    cardOpen = false;
+    card.classList.remove("show");
+    lastInput = performance.now();
+    hiUntil = lastInput + 1200;   /* the word stays marked on the globe for a moment */
+    request();
+  }
+
+  card.addEventListener("click", function(){
+    if (performance.now() - cardAt < 350) return;   /* the end of the tap that opened it */
+    closeCard();
+  });
+
+  /* ---- Random ---- */
+
+  /* Picks come from a shuffled bag: every word once before any word comes
+     round again, with short, middle and long words taking turns evenly. The
+     bag is remembered, so it carries on where it left off next time. */
+  var bag = null, bagPos = 0;
+
+  function shuffle(a){
+    for (var i = a.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i + 1)), t = a[i];
+      a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  function sizeClass(w){
+    var n = w.replace(/[^A-Za-z]/g, "").length;
+    return n <= 4 ? 0 : (n <= 7 ? 1 : 2);
+  }
+  function newBag(avoid){
+    var groups = [[], [], []], out = [], used = [0, 0, 0];
+    for (var i = 0; i < N; i++) groups[sizeClass(WORDS[i])].push(i);
+    groups.forEach(shuffle);
+    var cur = [Math.random() * N, Math.random() * N, Math.random() * N];
+    for (var k = 0; k < N; k++){   /* smooth weighted round-robin over the three sizes */
+      var best = -1;
+      for (var c = 0; c < 3; c++){
+        if (used[c] >= groups[c].length) continue;
+        cur[c] += groups[c].length;
+        if (best < 0 || cur[c] > cur[best]) best = c;
+      }
+      cur[best] -= N;
+      out.push(groups[best][used[best]++]);
+    }
+    if (out[0] === avoid){ out[0] = out[1]; out[1] = avoid; }
+    store("wordbag", out.join(","));
+    return out;
+  }
+  function loadBag(){
+    var saved = recall("wordbag", "").split(",").map(Number), seen = {};
+    var ok = saved.length === N && saved.every(function(v){
+      if (!(v >= 0 && v < N && v % 1 === 0) || seen[v]) return false;
+      seen[v] = true; return true;
+    });
+    bag = ok ? saved : newBag(-1);
+    bagPos = ok ? clamp(parseInt(recall("wordpos", "0"), 10) || 0, 0, N) : 0;
+  }
+  function nextWord(){
+    if (!bag) loadBag();
+    if (bagPos >= N){ bag = newBag(bag[N - 1]); bagPos = 0; }
+    var i = bag[bagPos++];
+    store("wordpos", bagPos);
+    return i;
+  }
+
+  function hideButton(){
+    away = true;
+    btn.classList.add("away");
+    btn.setAttribute("aria-hidden", "true");
+    btn.tabIndex = -1;
+  }
+  function showButton(){
+    away = false;
+    btn.classList.remove("away");
+    btn.removeAttribute("aria-hidden");
+    btn.tabIndex = 0;
+  }
+
+  /* Spin the globe a turn or two about the vertical and settle with the
+     word facing you, then tip it level into the middle. */
+  function startSpin(i){
+    var p = i * 3, m = Rm;
+    var qx = m[0]*P[p] + m[1]*P[p+1] + m[2]*P[p+2];
+    var qy = m[3]*P[p] + m[4]*P[p+1] + m[5]*P[p+2];
+    var qz = m[6]*P[p] + m[7]*P[p+1] + m[8]*P[p+2];
+    var phi = Math.atan2(-qx, qz);                          /* the turn that faces it to you */
+    var tilt = Math.atan2(qy, Math.sqrt(qx * qx + qz * qz)); /* the tip that centres it */
+    var dur = reduce ? 900 : 2200 + Math.random() * 1600;   /* 2.2 to 3.8 seconds */
+    var theta = phi;
+    if (!reduce){
+      var dir = Math.random() < 0.5 ? -1 : 1;
+      var want = dir * TAU * Math.max(1.3, 1.6 * dur / 1000 / 2.46);   /* peaks near 1.6 turns a second */
+      theta = phi + TAU * Math.round((want - phi) / TAU);
+      if (dir * theta < TAU * 1.2) theta += dir * TAU;
+    }
+    spin = { t0: performance.now(), dur: dur, R: Rm.slice(), theta: theta, tilt: tilt, target: i };
+  }
+
+  function land(){
+    var i = spin.target;
+    spin = null;
+    tidy();
+    omega = [0, 0, 0];
+    lastInput = performance.now();
+    hi = i; hiUntil = lastInput + 1e7;
+    clearTimeout(landTimer); clearTimeout(awayTimer);
+    landTimer = setTimeout(function(){ if (active) openCard(i, X[i], Y[i], FS[i] * 1.15); }, 220);
+    awayTimer = setTimeout(showButton, 220 + 2500);   /* back a few seconds after the word appears */
+  }
+
+  function random(){
+    if (!active || spin || away || sheetOpen()) return;
+    closeCard();
+    hideButton();
+    hi = -1;
+    drag = null; pinch = null; ptrs = {}; nPtr = 0;
+    canvas.classList.remove("grabbing");
+    startSpin(nextWord());
+    request();
+  }
+  btn.addEventListener("click", random);
+
+  /* ---- touch, mouse, trackpad ---- */
+
+  function fingers(){ return Object.keys(ptrs).map(function(k){ return ptrs[k]; }); }
+  function apart(a, b){ return Math.hypot(a.x - b.x, a.y - b.y) || 1; }
+
+  canvas.addEventListener("pointerdown", function(e){
+    if (spin || (e.pointerType === "mouse" && e.button !== 0)) return;
+    try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
+    if (!ptrs[e.pointerId]) nPtr++;
+    ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    lastInput = performance.now();
+    omega = [0, 0, 0];               /* a finger on the globe holds it still */
+    if (nPtr === 1){
+      drag = { id: e.pointerId, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: lastInput, tap: true };
+      samples = [];
+      canvas.classList.add("grabbing");
+    } else if (nPtr === 2){
+      var f = fingers();
+      pinch = { d: apart(f[0], f[1]), z: zoom };
+      drag = null;
+    }
+    request();
+  });
+
+  canvas.addEventListener("pointermove", function(e){
+    var p = ptrs[e.pointerId];
+    if (!p) return;
+    p.x = e.clientX; p.y = e.clientY;
+    lastInput = performance.now();
+    if (pinch){
+      var f = fingers();
+      if (f.length >= 2){ zoom = clamp(pinch.z * apart(f[0], f[1]) / pinch.d, ZMIN, ZMAX); request(); }
+      return;
+    }
+    if (!drag || drag.id !== e.pointerId) return;
+    var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    drag.x = e.clientX; drag.y = e.clientY;
+    if (drag.tap && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 8) drag.tap = false;
+    if (drag.tap) return;
+    var k = 1 / (R0 * zoom * D / (D - 1));   /* the front of the globe follows the finger */
+    turn(dy * k, dx * k, 0);
+    samples.push({ t: lastInput, x: dy * k, y: dx * k });
+    if (samples.length > 10) samples.shift();
+    request();
+  });
+
+  function up(e){
+    if (!ptrs[e.pointerId]) return;
+    delete ptrs[e.pointerId];
+    nPtr = Math.max(0, nPtr - 1);
+    var now = performance.now();
+    lastInput = now;
+    if (pinch){
+      if (nPtr < 2) pinch = null;
+      if (nPtr === 1){   /* one finger left: carry on turning from where it is */
+        var id = Object.keys(ptrs)[0], p = ptrs[id];
+        drag = { id: +id, x: p.x, y: p.y, sx: p.x, sy: p.y, t: now, tap: false };
+        samples = [];
+      }
+      return;
+    }
+    if (!drag || drag.id !== e.pointerId) return;
+    var d = drag;
+    drag = null;
+    canvas.classList.remove("grabbing");
+    if (d.tap){
+      if (e.type === "pointerup" && now - d.t < 600) tapAt(e.clientX, e.clientY);
+      return;
+    }
+    /* a flick keeps it spinning, slowing gently */
+    var rx = 0, ry = 0, first = now;
+    for (var i = samples.length - 1; i >= 0 && now - samples[i].t < 100; i--){
+      rx += samples[i].x; ry += samples[i].y; first = samples[i].t;
+    }
+    var span = (now - first + 16) / 1000, w = Math.hypot(rx, ry) / span;
+    var cut = w > 14 ? 14 / w : 1;
+    omega = [rx / span * cut, ry / span * cut, 0];
+    request();
+  }
+  canvas.addEventListener("pointerup", up);
+  canvas.addEventListener("pointercancel", up);
+  canvas.addEventListener("lostpointercapture", up);
+
+  /* a tap picks the clear word under the finger, or the nearest one */
+  function tapAt(x, y){
+    var best = -1, bz = -2, near = -1, nd = 46 * 46;
+    for (var k = 0; k < placed.length; k++){
+      var i = placed[k], dx = x - X[i], dy = y - Y[i];
+      if (Math.abs(dx) <= EM[i] * FS[i] * 0.5 + 6 && Math.abs(dy) <= FS[i] * 0.6 + 6){
+        if (Z[i] > bz){ bz = Z[i]; best = i; }
+      } else if (dx * dx + dy * dy < nd){ nd = dx * dx + dy * dy; near = i; }
+    }
+    var chosen = best >= 0 ? best : near;
+    if (chosen < 0) return;
+    hi = chosen;
+    request();
+    openCard(chosen, X[chosen], Y[chosen], FS[chosen]);
+  }
+
+  canvas.addEventListener("wheel", function(e){
+    e.preventDefault();
+    if (spin) return;
+    var d = e.deltaY * (e.deltaMode === 1 ? 16 : (e.deltaMode === 2 ? 400 : 1));
+    zoom = clamp(zoom * Math.exp(-d * (e.ctrlKey ? 0.01 : 0.002)), ZMIN, ZMAX);
+    lastInput = performance.now();
+    request();
+  }, { passive: false });
+
+  /* Safari: trackpad pinch on the Mac, and no page zoom on the iPad */
+  ["gesturestart", "gesturechange", "gestureend"].forEach(function(type){
+    $("words").addEventListener(type, function(e){
+      e.preventDefault();
+      if (type === "gesturestart"){ gest = zoom; return; }
+      if (type === "gestureend"){ gest = null; return; }
+      if (gest === null || pinch || spin) return;   /* touch screens pinch with pointer events */
+      zoom = clamp(gest * e.scale, ZMIN, ZMAX);
+      lastInput = performance.now();
+      request();
+    });
+  });
+
+  window.addEventListener("resize", function(){ if (active){ resize(); request(); } });
+
+  /* keyboard, for the Mac and the TV */
+  function nudge(key){
+    if (spin) return;
+    var v = 0.9;
+    if (key === "ArrowLeft") omega[1] -= v;
+    else if (key === "ArrowRight") omega[1] += v;
+    else if (key === "ArrowUp") omega[0] -= v;
+    else if (key === "ArrowDown") omega[0] += v;
+    lastInput = performance.now();
+    request();
+  }
+  function zoomBy(f){
+    if (spin) return;
+    zoom = clamp(zoom * f, ZMIN, ZMAX);
+    lastInput = performance.now();
+    request();
+  }
+
+  function activate(on){
+    if (on){
+      if (!ready) init();
+      var was = active;
+      active = true;
+      resize();
+      colours();
+      if (!was && !reduce){ intro = { t0: performance.now() }; omega = [0, -2.4, 0]; }   /* whoosh in */
+      request();
+      return;
+    }
+    if (!active) return;
+    active = false;
+    if (raf){ cancelAnimationFrame(raf); raf = 0; }
+    lastT = 0;
+    if (spin){
+      Rm = mul(rot(1, 0, 0, spin.tilt), mul(rot(0, 1, 0, spin.theta), spin.R));
+      spin = null;
+    }
+    clearTimeout(landTimer); clearTimeout(awayTimer);
+    cardOpen = false;
+    card.classList.remove("show");
+    showButton();
+    hi = -1;
+    drag = null; pinch = null; ptrs = {}; nPtr = 0;
+    canvas.classList.remove("grabbing");
+  }
+
+  return {
+    activate: activate, random: random, nudge: nudge, zoomBy: zoomBy, closeCard: closeCard,
+    cardOpen: function(){ return cardOpen; }
+  };
+})();
+
+/* ---------------- Reading | Maths | Words ---------------- */
 
 var mode = "reading";
 
 function setMode(m){
-  mode = m === "maths" ? "maths" : "reading";
+  mode = (m === "maths" || m === "words") ? m : "reading";
   document.body.classList.toggle("maths", mode === "maths");
+  document.body.classList.toggle("words", mode === "words");
   $("modeReading").setAttribute("aria-pressed", mode === "reading" ? "true" : "false");
   $("modeMaths").setAttribute("aria-pressed", mode === "maths" ? "true" : "false");
+  $("modeWords").setAttribute("aria-pressed", mode === "words" ? "true" : "false");
   stopAll(); clearWord(); setLive(-1);
   setSheet(false);
   if (mode === "maths" && !M.nums.length) newSum();
+  Words.activate(mode === "words");
   window.scrollTo(0, 0);
   store("mode", mode);
 }
 $("modeReading").addEventListener("click", function(){ setMode("reading"); });
 $("modeMaths").addEventListener("click", function(){ setMode("maths"); });
+$("modeWords").addEventListener("click", function(){ setMode("words"); });
 
 /* editor */
 $("edit").addEventListener("click", function(){
@@ -1289,6 +2085,16 @@ window.addEventListener("keydown", function(e){
     if (/^[0-9]$/.test(e.key)){ e.preventDefault(); typeDigit(e.key); return; }
     if (e.key === "Backspace"){ e.preventDefault(); deleteDigit(); return; }
     if (!onControl && (e.key === "Enter" || e.key === "=")){ e.preventDefault(); checkAnswer(); return; }
+  }
+
+  /* words: Space or Enter for Random, arrows spin, + and − zoom, Esc closes the big word */
+  if (mode === "words" && !sheetOpen() && !e.metaKey && !e.ctrlKey && !e.altKey){
+    var onOther = e.target.closest && e.target.closest("button, select, a") && e.target.id !== "wordRandom";
+    if (!onOther && (e.key === "Enter" || e.code === "Space")){ e.preventDefault(); Words.random(); return; }
+    if (/^Arrow(Left|Right|Up|Down)$/.test(e.key)){ e.preventDefault(); Words.nudge(e.key); return; }
+    if (e.key === "+" || e.key === "="){ e.preventDefault(); Words.zoomBy(1.25); return; }
+    if (e.key === "-" || e.key === "_"){ e.preventDefault(); Words.zoomBy(0.8); return; }
+    if (e.key === "Escape" && Words.cardOpen()){ Words.closeCard(); return; }
   }
 
   if (e.code === "Space"){ e.preventDefault(); if (mode === "reading") play(); }
