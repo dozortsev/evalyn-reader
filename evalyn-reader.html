@@ -1326,129 +1326,48 @@ $("pad").addEventListener("click", function(e){
 
 /* ---------------- words: a globe of words ---------------- */
 
-/* The word pool, in globe order: word i sits on point i of a Fibonacci
-   sphere. The order was optimised beforehand so short and long words are
-   evenly mixed all over the globe: no clumps of three-letter words and no
-   clumps of long ones. */
-var WORDS = [
-  "tower", "twenty", "brushes", "ski", "rock", "stormy", "wonderful", "music", "marvellous",
-  "science", "batch", "strong", "cereal", "fairy", "guitar", "adventure", "curry", "toast",
-  "bicycle", "March", "lake", "karate", "sky", "jumped", "town", "keyboard", "sailor", "squirrel",
-  "tadpole", "Ireland", "classroom", "golf", "neighbour", "million", "sparkling", "mindful",
-  "peace", "dinosaur", "noodles", "bumblebee", "lettuce", "goose", "eight", "spider", "cupboard",
-  "Egypt", "summer", "Pluto", "wok", "auntie", "year", "otter", "shark", "dig", "carriage", "fizz",
-  "baker", "helpful", "shampoo", "fig", "pie", "wobbly", "trumpet", "tennis", "five", "jaguar",
-  "concert", "baby", "market", "mushroom", "joke", "magnet", "recipe", "violet", "marathon",
-  "Canada", "balance", "scientist", "diving", "building", "glitter", "flowers", "cottage", "spoon",
-  "blanket", "lollipop", "rainbow", "shell", "ukulele", "lovely", "tights", "bread", "pasta",
-  "hedgehog", "firefighter", "rhyme", "dreaming", "cucumber", "juice", "boots", "lamb",
-  "blackberry", "gigantic", "June", "lobster", "Thursday", "bathtub", "hide", "sphere", "fluff",
-  "skirt", "icy", "lemonade", "raisin", "kind", "spy", "parrot", "garlic", "newt", "rubber",
-  "classmate", "backpack", "lip", "sip", "honey", "pear", "whisper", "tiger", "hutch", "flamingo",
-  "oak", "winner", "aubergine", "shrimp", "lasagne", "relay", "pillow", "gorilla", "tortoise",
-  "trifle", "doughnut", "breeze", "buzzing", "singer", "holiday", "teacher", "melon", "egg",
-  "season", "cycling", "torch", "penguin", "mammoth", "three", "week", "owl", "bedroom",
-  "grateful", "whistling", "pretzel", "catch", "crunchy", "ten", "iguana", "basketball",
-  "universe", "flower", "kindness", "breathing", "looking", "boxes", "cheerful", "toy", "medal",
-  "seek", "avocado", "fridge", "xylophone", "Saturn", "ram", "lightning", "calendar", "one",
-  "superhero", "cub", "acorn", "rose", "seagull", "white", "piglet", "police", "cooking", "crown",
-  "walrus", "pyjamas", "cheese", "sparkler", "pentagon", "mud", "light", "lilac", "May", "Wales",
-  "spaceship", "cherry", "August", "Thames", "question", "fluffy", "giggling", "cupcake", "hip",
-  "round", "falcon", "goat", "knight", "duckling", "tiptoe", "fetch", "bridge", "flutter",
-  "marshmallow", "hoodie", "hamster", "conker", "pirate", "Tuesday", "favourite", "helmet",
-  "piano", "half", "funny", "bakery", "octopus", "exercise", "Neptune", "Pikachu", "palace",
-  "brush", "caramel", "woodpecker", "Friday", "boa", "compass", "cello", "chick", "leaf", "tube",
-  "plate", "pond", "curious", "water", "grandpa", "important", "clever", "honk", "saxophone",
-  "splits", "night", "mask", "climbing", "fly", "seven", "terrific", "tiara", "treasure",
-  "planetarium", "planting", "goggles", "ladder", "grape", "ray", "watering", "joyful", "joy",
-  "race", "fizzed", "jay", "pony", "submarine", "blueberry", "salad", "pudding", "somersault",
-  "riddle", "bluebell", "cinema", "ink", "canoe", "camel", "wagon", "notebook", "wriggle",
-  "valley", "house", "playful", "sausage", "breathe", "jigsaw", "secret", "calf", "hopping",
-  "burger", "inventor", "wiggle", "surprise", "sunset", "flute", "turtle", "Christmas", "orchard",
-  "sister", "stretch", "looked", "sunrise", "shadow", "Evalyn", "bell", "ring", "feather", "team",
-  "digger", "buzzed", "waterfall", "lunches", "sharing", "puzzle", "koala", "tomorrow", "computer",
-  "memory", "wig", "thinking", "panda", "robot", "yam", "running", "serve", "brown", "sparkle",
-  "eye", "scissors", "gardener", "ivy", "jumper", "breakfast", "grey", "swimsuit", "goldfish",
-  "swan", "hippo", "train", "gingerbread", "today", "alligator", "dessert", "bracelet", "Paris",
-  "France", "jaw", "seal", "zookeeper", "travel", "orb", "brave", "slippery", "kit", "autumn",
-  "hope", "mango", "Earth", "pink", "thousand", "bison", "envelope", "artist", "twig", "octagon",
-  "jug", "gem", "cuddle", "netball", "taxi", "ruler", "square", "experiment", "glider", "theatre",
-  "hexagon", "tumble", "planet", "Africa", "powerful", "pyramid", "zipper", "bucket", "fog",
-  "juggle", "badminton", "America", "smiling", "freezer", "wobble", "pigeon", "captain",
-  "ladybird", "basket", "koi", "pencil", "sea", "petal", "ewe", "dumpling", "think", "imagination",
-  "recorder", "chase", "October", "campfire", "pea", "fun", "chameleon", "court", "problem",
-  "smoothie", "firework", "quarter", "foxes", "diamond", "snake", "sandcastle", "sprinkle",
-  "coach", "olive", "kitten", "loud", "hour", "trainers", "cinnamon", "munch", "sheep",
-  "staircase", "web", "speedy", "recovery", "cricket", "China", "rhythm", "wonder", "oven",
-  "geography", "winter", "custard", "arrive", "carrot", "hum", "milkshake", "snowy", "tea",
-  "heavy", "sticky", "king", "puffin", "postcard", "giraffe", "maracas", "hairbrush", "nut",
-  "cosy", "mouse", "Brazil", "bow", "smile", "spring", "mermaid", "weekend", "skating", "sailing",
-  "jacket", "cloudy", "pumpkin", "magic", "stadium", "metre", "bun", "art", "zip", "dancing",
-  "hummingbird", "celebration", "crunch", "journey", "carpet", "key", "sunshine", "rectangle",
-  "owlet", "hungry", "judo", "black", "glue", "Halloween", "delicious", "baseball", "kicking",
-  "Sunday", "boredom", "story", "proud", "van", "drawer", "wind", "splashing", "toothbrush",
-  "melody", "Asia", "gentle", "supermarket", "balloon", "daffodil", "Greece", "leaves", "archery",
-  "farmer", "calm", "mountain", "watermelon", "strawberry", "dentist", "soft", "baking", "heart",
-  "elephant", "rice", "words", "dream", "peacock", "new", "waffle", "pinecone", "coffee",
-  "Australia", "spelling", "player", "tug", "apple", "daisy", "wax", "magical", "noisy", "easel",
-  "road", "raincoat", "search", "laughter", "laughing", "fix", "boat", "parcel", "giant", "root",
-  "sand", "wish", "meadow", "November", "airport", "radish", "sticker", "street", "park", "button",
-  "spaghetti", "stone", "pod", "slug", "month", "elm", "Murka", "invention", "umbrella", "jet",
-  "banana", "clock", "poster", "listening", "brother", "celery", "bumpy", "queen", "station",
-  "satellite", "cylinder", "quiet", "leopard", "silence", "lunchbox", "garage", "sparkly",
-  "magenta", "pebble", "January", "sleepy", "invisible", "raspberry", "snowball", "teapot",
-  "gloves", "lantern", "ambulance", "hockey", "peach", "colour", "lemon", "English", "friendship",
-  "yesterday", "blossom", "Wednesday", "witch", "Japan", "arm", "cube", "wren", "page", "forest",
-  "attic", "odd", "tide", "castle", "England", "champion", "sleeping", "two", "oar", "rabbit",
-  "boats", "plum", "elf", "soup", "lid", "wolf", "lemur", "hugging", "incredible", "hospital",
-  "llama", "toe", "helicopter", "cloud", "hut", "puppy", "elk", "galaxy", "mirror", "mindfulness",
-  "Hong Kong", "history", "little", "moose", "waving", "telescope", "excited", "mix", "cod", "ear",
-  "Germany", "vanilla", "peaceful", "zoo", "yak", "bouncy", "flying", "dishes", "spinning",
-  "excellent", "frosty", "paint", "beach", "builder", "thirsty", "fantastic", "pounce", "jungle",
-  "gymnastics", "puppet", "butter", "rainy", "lighthouse", "giggly", "shout", "snowflake",
-  "motorbike", "tambourine", "microwave", "surfing", "rowing", "constellation", "pocket", "sponge",
-  "shy", "turquoise", "marble", "sport", "aquarium", "whale", "celebrate", "handstand", "tiny",
-  "dry", "frost", "four", "letter", "skin", "dark", "tap", "eel", "bookshelf", "beans", "yoghurt",
-  "cartwheel", "family", "kick", "ant", "painting", "eclipse", "ship", "six", "mop", "gerbil",
-  "mittens", "panther", "raccoon", "glasses", "turnip", "yacht", "apricot", "dragonfly", "gnu",
-  "July", "game", "rain", "seahorse", "bagel", "counting", "singing", "bottle", "bright", "smooth",
-  "cookie", "language", "soap", "emu", "kangaroo", "relax", "birthday", "sweets", "trampoline",
-  "love", "alpaca", "playground", "Europe", "tomato", "brain", "crisps", "ape", "island", "gym",
-  "Saturday", "costume", "swimming", "eagle", "beaver", "patience", "doctor", "Poland", "Spain",
-  "February", "dress", "icicle", "paper", "fizzing", "binoculars", "Wimbledon", "tidying",
-  "hovercraft", "golden", "kiss", "aeroplane", "weather", "clapping", "Duffy", "hammer", "silly",
-  "London", "starfish", "patch", "squishy", "careful", "library", "skunk", "bathroom", "scarf",
-  "ocean", "cap", "dragon", "happy", "phonics", "maths", "hill", "pepper", "field", "oval",
-  "cheetah", "explorer", "farm", "doe", "popcorn", "salmon", "rug", "certificate", "dolphin",
-  "muscles", "lion", "hop", "trophy", "parsnip", "princess", "jam", "helping", "courgette", "nine",
-  "circle", "invent", "Scotland", "mystery", "silver", "purple", "shorts", "cave", "shower", "wag",
-  "crocodile", "dinner", "lunch", "lizard", "detective", "bowl", "potato", "Mercury", "snail",
-  "ice", "midnight", "lorry", "comet", "Kyiv", "bus", "kitchen", "omelette", "morning", "porridge",
-  "amazing", "chimpanzee", "bee", "snowman", "grandma", "catching", "rolling", "grass", "India",
-  "necklace", "pancake", "raindrop", "special", "porcupine", "splash", "cousin", "towel",
-  "glittery", "volcano", "snow", "desert", "hug", "wizard", "astronaut", "snack", "learn",
-  "village", "star", "beautiful", "Ukrainian", "rocket", "uncle", "robin", "cab", "April", "sofa",
-  "believe", "return", "violin", "Mars", "scone", "jumping", "reading", "nap", "crow", "tablet",
-  "driver", "drum", "rugby", "moss", "Ukraine", "scamper", "pineapple", "monkey", "platypus",
-  "slippers", "jellyfish", "sushi", "croissant", "harp", "screen", "dancer", "energy", "circus",
-  "ditch", "muffin", "churches", "digging", "Jupiter", "donkey", "armadillo", "kiwi", "beetroot",
-  "stamp", "thankful", "sloth", "duvet", "prince", "floating", "dew", "football", "raven",
-  "brilliant", "storm", "match", "foal", "tent", "unicorn", "helped", "switch", "jelly", "scooter",
-  "referee", "ballet", "cabbage", "Venus", "chapter", "seed", "curtain", "visit", "father",
-  "pizza", "chocolate", "tie", "poem", "September", "igloo", "kettle", "jog", "homework",
-  "thunder", "orchestra", "branch", "river", "wave", "yummy", "hundred", "chair", "skiing",
-  "bubble", "broccoli", "sentence", "crimson", "slow", "shiny", "imagine", "twinkle", "December",
-  "drawing", "racket", "Monday", "skipping", "whistle", "ferry", "pilot", "bank", "chilly",
-  "discovery", "present", "paw"
-];
+/* The word pool. Paste in any comma-separated list, as long or as short as
+   you like: the globe spreads the words out evenly by itself, sizes them
+   to suit how many there are, and Random picks from all of them. */
+var WORD_LIST = `
+London, Ukraine, tennis, racket, Wimbledon, Hong Kong, Monday, Tuesday, Wednesday, Thursday,
+Friday, Saturday, Sunday, January, February, March, April, May, June, July, August, September,
+October, November, December, today, tomorrow, yesterday, weekend, week, month, year, morning,
+night, midnight, calendar, birthday, holiday, Christmas, Halloween, spring, summer, autumn,
+winter, season, hour, court, serve, match, champion, trophy, winner, player, coach, team, medal,
+sport, netball, golf, hockey, cricket, football, swimming, gymnastics, skating, running,
+jumping, balance, stretch, helmet, goggles, swimsuit, certificate, race, trampoline, cartwheel,
+handstand, bicycle, Thames, bridge, tower, palace, castle, tube, bus, taxi, ferry, train, park,
+library, queen, right, England, Left, South, North, Spain, Barbados, Canada, street, station,
+airport, rain, umbrella, cinema, theatre, river, playground, Kyiv, Ukrainian, English, China,
+Japan, island, boat, ship, noodles, dumpling, tea, family, grandma, grandpa, father, sister,
+brother, cousin, geese, Murka, Pikachu, Roz, mindfulness, bell, kiss, grass, fizz, honk, think,
+bank, pink, skin, mask, kick, kit, catch, fetch, switch, hutch, ditch, patch, batch, witch,
+boxes, dishes, brushes, lunches, foxes, churches, boats, flowers, jumped, helped, looked,
+buzzed, fizzed, buzzing, fizzing, looking, helping, rabbit, kitten, puppy, panda, tiger, monkey,
+hedgehog, squirrel, robin, chick, goose, sheep, penguin, dolphin, pumpkin, carrot, banana,
+lemon, muffin, pancake, popcorn, pizza, cupcake, rocket, sunset, rainbow, snowman, basket,
+jacket, magnet, pencil, notebook
+`;
+
+var WORDS = (function(){
+  var seen = Object.create(null), out = [];
+  WORD_LIST.split(",").forEach(function(w){
+    w = w.replace(/\s+/g, " ").trim();
+    if (w && !seen[w]){ seen[w] = true; out.push(w); }
+  });
+  return out;
+})();
 
 var Words = (function(){
   var canvas = $("globe"), card = $("wordCard"), big = $("wordBig"), btn = $("wordRandom");
   var ctx = canvas.getContext("2d");
   var N = WORDS.length, TAU = Math.PI * 2;
+  var GW = WORDS;            /* the words in globe order: GW[i] sits on point i (set by arrange) */
   var REF = 20;              /* words are drawn at 20px, then scaled to size */
   var D = 3.6;               /* camera distance in globe radii: a little perspective */
-  var ZMIN = 0.6, ZMAX = 4;  /* pinch range */
+  var ZMIN = 0.6;            /* pinch range: up to 4x for 1000 words, 2.5x for 200 */
+  var ZMAX = clamp(4 * Math.pow(Math.max(N, 1) / 1000, 0.3), 2.5, 4);
   var AUTO = -0.1;           /* the slow idle spin, radians a second */
   var reduce = !smooth;
 
@@ -1503,6 +1422,90 @@ var Words = (function(){
           a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]];
   }
 
+  /* Spread the words evenly over the globe, whatever the list: shuffle,
+     then a quick simulated annealing over swaps, so every patch of the
+     globe gets the same mix of short and long words, and neighbours differ
+     in length (no clumps of short words, no clumps of long ones). Seeded by
+     the list itself, so the same list always makes the same globe. */
+  function arrange(list){
+    var n = list.length, i, j, k;
+    if (n < 4) return list.slice();
+    var seed = 2166136261, text = list.join("|");
+    for (i = 0; i < text.length; i++) seed = Math.imul(seed ^ text.charCodeAt(i), 16777619);
+    var rand = function(){   /* mulberry32 */
+      seed = seed + 0x6D2B79F5 | 0;
+      var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+    var L = list.map(function(w){ return w.replace(/[^A-Za-z]/g, "").length || w.length; });
+    var mu = L.reduce(function(a, b){ return a + b; }, 0) / n;
+    var K8 = Math.min(8, n - 1), K6 = Math.min(6, K8);
+
+    /* each point's nearest neighbours, nearest first */
+    var nb = [];
+    for (i = 0; i < n; i++){
+      var bd = [], bj = [];
+      for (j = 0; j < n; j++){
+        if (j === i) continue;
+        var dx = P[i*3] - P[j*3], dy = P[i*3+1] - P[j*3+1], dz = P[i*3+2] - P[j*3+2];
+        var d = dx*dx + dy*dy + dz*dz;
+        if (bd.length < K8 || d < bd[K8 - 1]){
+          k = bd.length < K8 ? bd.length : K8 - 1;
+          while (k > 0 && bd[k - 1] > d){ bd[k] = bd[k - 1]; bj[k] = bj[k - 1]; k--; }
+          bd[k] = d; bj[k] = j;
+        }
+      }
+      nb.push(bj);
+    }
+    var rev = [], adj = [];   /* who counts a point among its 8 (plus itself); 6-neighbour links, both ways */
+    for (i = 0; i < n; i++){ rev.push([i]); adj.push([]); }
+    for (i = 0; i < n; i++) for (k = 0; k < K8; k++){
+      rev[nb[i][k]].push(i);
+      if (k < K6){
+        j = nb[i][k];
+        if (adj[i].indexOf(j) < 0){ adj[i].push(j); adj[j].push(i); }
+      }
+    }
+
+    var at = [];              /* at[point] = word */
+    for (i = 0; i < n; i++) at.push(i);
+    for (i = n - 1; i > 0; i--){ j = Math.floor(rand() * (i + 1)); k = at[i]; at[i] = at[j]; at[j] = k; }
+
+    var stamp = new Int32Array(n), tick = 0;
+    function pair(a, b){ return (a === b ? 0.3 : 0) + ((a <= 4 && b <= 4) || (a >= 8 && b >= 8) ? 1.5 : 0); }
+    function part(a, b){      /* every cost term that involves point a or point b */
+      var c = 0, q, r, s, m, la = L[at[a]], lb = L[at[b]], src;
+      tick++;
+      for (q = 0; q < 2; q++){
+        src = q ? rev[b] : rev[a];
+        for (r = 0; r < src.length; r++){
+          s = src[r];
+          if (stamp[s] === tick) continue;
+          stamp[s] = tick;
+          m = L[at[s]];
+          for (k = 0; k < K8; k++) m += L[at[nb[s][k]]];
+          m = m / (K8 + 1) - mu;
+          c += m * m;                     /* this patch's average length vs the whole list's */
+        }
+      }
+      for (r = 0; r < adj[a].length; r++) c += pair(la, L[at[adj[a][r]]]);
+      for (r = 0; r < adj[b].length; r++) if (adj[b][r] !== a) c += pair(lb, L[at[adj[b][r]]]);
+      return c;
+    }
+
+    var iters = Math.max(20000, 120 * n), T = 1.2, cool = Math.pow(0.002 / 1.2, 1 / iters);
+    for (var it = 0; it < iters; it++, T *= cool){
+      var a = Math.floor(rand() * n), b = Math.floor(rand() * n);
+      if (a === b || L[at[a]] === L[at[b]]) continue;   /* same length: nothing would change */
+      var before = part(a, b);
+      k = at[a]; at[a] = at[b]; at[b] = k;
+      var delta = part(a, b) - before;
+      if (delta > 0 && rand() >= Math.exp(-delta / T)){ k = at[a]; at[a] = at[b]; at[b] = k; }
+    }
+    return at.map(function(w){ return list[w]; });
+  }
+
   /* ---- set-up ---- */
 
   function init(){
@@ -1511,6 +1514,7 @@ var Words = (function(){
       var y = 1 - 2 * (i + 0.5) / N, r = Math.sqrt(1 - y * y), th = ga * i;
       P[i*3] = Math.cos(th) * r; P[i*3+1] = y; P[i*3+2] = Math.sin(th) * r;
     }
+    GW = arrange(WORDS);
     Rm = rot(1, 0, 0, 0.42);   /* tipped towards you a little */
     measure();
     /* word widths are measured in Andika: measure again once it has loaded,
@@ -1530,7 +1534,7 @@ var Words = (function(){
   function measure(){
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.font = "400 " + REF + "px Andika, Lexend, sans-serif";
-    for (var i = 0; i < N; i++) EM[i] = ctx.measureText(WORDS[i]).width / REF;
+    for (var i = 0; i < N; i++) EM[i] = ctx.measureText(GW[i]).width / REF;
   }
 
   function colours(){
@@ -1550,7 +1554,8 @@ var Words = (function(){
     cx = W / 2;
     cy = H / 2 - Math.min(24, H * 0.05);   /* a little high, leaving room for Random */
     R0 = Math.min(W * 0.48, H * 0.38);
-    fontBase = clamp(R0 * 0.062, 8, 30);
+    /* fewer words, bigger words: 1000 words at 0.062 of the globe's radius, 200 at 0.074 */
+    fontBase = clamp(R0 * 0.062 * Math.pow(1000 / Math.max(N, 1), 0.11), 8, 72);
     cols = Math.ceil(W / CELL) + 1;
     grid = [];
     for (var k = 0, n = cols * (Math.ceil(H / CELL) + 1); k < n; k++) grid.push([]);
@@ -1592,7 +1597,7 @@ var Words = (function(){
     if (!drag && !pinch){
       /* a flick slows down gently; after a few quiet seconds the idle spin comes back */
       var gain = reduce ? 0 : sstep((now - lastInput - 2500) / 1500);
-      var k = Math.exp(-dt / 0.9), auto = AUTO * gain;
+      var k = Math.exp(-dt / 0.9), auto = AUTO * gain / Math.max(1, zoom);   /* slower when zoomed in */
       omega = [omega[0] * k, auto + (omega[1] - auto) * k, omega[2] * k];
       turn(omega[0] * dt, omega[1] * dt, omega[2] * dt);
     }
@@ -1663,7 +1668,7 @@ var Words = (function(){
       VIS[i] += (ON[i] - VIS[i]) * ease;
       if (i === hi) continue;
       var z = Z[i], t = (z + 1) * 0.5;
-      var faint = 0.03 + 0.09 * t * Math.sqrt(t);            /* faint all round, a touch darker in front */
+      var faint = 0.025 + 0.055 * t * Math.sqrt(t);          /* faint all round, a touch darker in front */
       var clear = 0.5 + 0.5 * sstep((z - 0.1) / 0.5);        /* clear words fade in towards the middle */
       var a = faint + (clear - faint) * VIS[i];
       if (a < 0.012) continue;
@@ -1672,7 +1677,7 @@ var Words = (function(){
       var sc = fs / REF * dpr;
       ctx.globalAlpha = a;
       ctx.setTransform(sc, 0, 0, sc, X[i] * dpr, Y[i] * dpr);
-      ctx.fillText(WORDS[i], 0, 0);
+      ctx.fillText(GW[i], 0, 0);
     }
     if (hi >= 0 && Z[hi] > 0) pill(hi);
     ctx.globalAlpha = 1;
@@ -1695,7 +1700,7 @@ var Words = (function(){
     var sc = fs / REF * dpr;
     ctx.fillStyle = bandInk;
     ctx.setTransform(sc, 0, 0, sc, x * dpr, y * dpr);
-    ctx.fillText(WORDS[i], 0, 0);
+    ctx.fillText(GW[i], 0, 0);
     ctx.fillStyle = ink;
   }
 
@@ -1714,7 +1719,7 @@ var Words = (function(){
 
   function openCard(i, x, y, fs){
     var size = Math.max(28, Math.min(240, H * 0.3, (Math.min(W, 1400) - 48) / Math.max(EM[i], 1)));
-    big.textContent = WORDS[i];
+    big.textContent = GW[i];
     big.style.fontSize = size.toFixed(1) + "px";
     big.style.transition = "none";
     big.style.transform = "none";
@@ -1764,7 +1769,7 @@ var Words = (function(){
   }
   function newBag(avoid){
     var groups = [[], [], []], out = [], used = [0, 0, 0];
-    for (var i = 0; i < N; i++) groups[sizeClass(WORDS[i])].push(i);
+    for (var i = 0; i < N; i++) groups[sizeClass(GW[i])].push(i);
     groups.forEach(shuffle);
     var cur = [Math.random() * N, Math.random() * N, Math.random() * N];
     for (var k = 0; k < N; k++){   /* smooth weighted round-robin over the three sizes */
@@ -1777,7 +1782,7 @@ var Words = (function(){
       cur[best] -= N;
       out.push(groups[best][used[best]++]);
     }
-    if (out[0] === avoid){ out[0] = out[1]; out[1] = avoid; }
+    if (N > 1 && out[0] === avoid){ out[0] = out[1]; out[1] = avoid; }
     store("wordbag", out.join(","));
     return out;
   }
@@ -1844,7 +1849,7 @@ var Words = (function(){
   }
 
   function random(){
-    if (!active || spin || away || sheetOpen()) return;
+    if (!active || !N || spin || away || sheetOpen()) return;
     closeCard();
     hideButton();
     hi = -1;
