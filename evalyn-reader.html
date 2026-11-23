@@ -87,6 +87,33 @@ body.locked{ overflow: hidden; }
 #text p{ margin: 0 0 .85em; }
 #text p:last-child{ margin-bottom: 0; }
 
+/* After the story: room for the last sentence to rise like the others,
+   and a well done that pops up once she reaches it. */
+#done{
+  box-sizing: border-box;
+  min-height: 75vh;
+  font-family: var(--face,"Andika"), Georgia, serif;   /* the story's type, so its line width (in ch) matches */
+  font-size: min(var(--size), 11vw);
+  max-width: min(var(--measure), 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  padding-top: clamp(32px, 8vh, 96px);
+  text-align: center;
+}
+#done .inner{
+  opacity: 0; transform: translateY(14px);
+  transition: opacity .45s ease, transform .6s cubic-bezier(.2,1.3,.4,1);
+}
+#done.show .inner{ opacity: 1; transform: none; }
+#done .badge{ position: relative; display: inline-block; font-size: clamp(60px, min(15vw, 15vh), 124px); line-height: 1; }
+#done.show .badge{ animation: pop .7s cubic-bezier(.2,1.5,.4,1) both; }
+#done .tick{ position: absolute; right: -.22em; bottom: -.04em; font-size: .44em; }
+#done h2{
+  margin: .4em 0 0;
+  font-family: var(--face,"Andika"), Georgia, serif;
+  font-size: clamp(26px, min(7vw, 7.5vh), 54px); font-weight: 700; line-height: 1.2;
+  color: var(--ink);
+}
+
 /* ---------- words ---------- */
 
 .w{
@@ -658,7 +685,13 @@ body.bedtime .reading-only{ display: none !important; }
 </head>
 <body>
 
-<div id="stage"><div id="text" aria-live="polite"></div></div>
+<div id="stage">
+  <div id="text" aria-live="polite"></div>
+  <div id="done"><div class="inner">
+    <div class="badge" aria-hidden="true">&#x1F44D;<span class="tick">&#x2705;</span></div>
+    <h2>Well done Evalyn!</h2>
+  </div></div>
+</div>
 <div id="count"></div>
 
 <main id="maths" aria-label="Maths">
@@ -858,8 +891,12 @@ function tokenize(text){
 
   current = -1; liveSentence = -1;
   setLive(-1);
+  showDone(false);
   updateCount();
 }
+
+/* the well done under the story, shown once she reaches the last sentence */
+function showDone(on){ $("done").classList.toggle("show", !!on); }
 
 function updateCount(){
   var n = tokens.length;
@@ -880,6 +917,7 @@ function setLive(si){
   }
   tokens.forEach(function(t){ t.el.classList.toggle("live", t.sentence === si); });
   textEl.classList.add("dim");
+  if (si === sentences.length - 1) showDone(true);
 }
 
 var smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -888,29 +926,32 @@ var smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
    and the TV the page stays where it is and the mouse does the scrolling. */
 var touchScreen = window.matchMedia("(pointer: coarse), (max-width: 1180px)");
 
-/* Put the tapped sentence in the middle of the screen. A later sentence
-   therefore scrolls down, an earlier one scrolls back up. */
-function centreSentence(si){
+/* The sentence being read rises to a quarter of the way down the screen
+   (three quarters of the way up), so most of the screen shows what comes
+   next. A later sentence scrolls down, an earlier one scrolls back up. */
+var READ_LINE = 0.25;
+
+function topClear(){ return $("topbar").getBoundingClientRect().bottom + 16; }
+
+/* where a block of this height should sit: centred on the reading line,
+   but never tucked under the top bar (so a long sentence starts just below it) */
+function raisedTop(height){ return Math.max(topClear(), window.innerHeight * READ_LINE - height / 2); }
+
+function scrollToY(target){
+  var max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+  target = Math.max(0, Math.min(target, max));
+  if (Math.abs(target - window.pageYOffset) < 8) return;
+  try{ window.scrollTo({ top: target, behavior: smooth ? "smooth" : "auto" }); }
+  catch(e){ window.scrollTo(0, target); }
+}
+
+function raiseSentence(si){
   if (!touchScreen.matches) return;
   var s = sentences[si];
   if (!s || !s.tokens.length) return;
   var first = tokens[s.tokens[0]].el.getBoundingClientRect();
   var last  = tokens[s.tokens[s.tokens.length - 1]].el.getBoundingClientRect();
-  var top = first.top, height = last.bottom - first.top;
-  var vh = window.innerHeight;
-  var y = window.pageYOffset;
-
-  /* a sentence taller than the screen can't be centred — sit its first line near the top */
-  var target = (height > vh * 0.8)
-    ? y + top - vh * 0.12
-    : y + top + height / 2 - vh / 2;
-
-  var max = Math.max(0, document.documentElement.scrollHeight - vh);
-  target = Math.max(0, Math.min(target, max));
-  if (Math.abs(target - y) < 8) return;
-
-  try{ window.scrollTo({ top: target, behavior: smooth ? "smooth" : "auto" }); }
-  catch(e){ window.scrollTo(0, target); }
+  scrollToY(window.pageYOffset + first.top - raisedTop(last.bottom - first.top));
 }
 
 function clearWord(){
@@ -926,10 +967,10 @@ function markWord(i){
   tokens[i].el.classList.add("on");
   setLive(tokens[i].sentence);
   updateCount();
-  if (reading){
+  if (reading){   /* reading aloud: when the word nears an edge, lift its line up to the reading line */
     var r = tokens[i].el.getBoundingClientRect();
-    if (r.top < 60 || r.bottom > window.innerHeight - 60){
-      tokens[i].el.scrollIntoView({ block:"center", behavior: smooth ? "smooth" : "auto" });
+    if (r.top < topClear() || r.bottom > window.innerHeight - 60){
+      scrollToY(window.pageYOffset + r.top - raisedTop(r.height));
     }
   }
 }
@@ -981,7 +1022,7 @@ function speakSentence(si, chain){
   if (!synth || si >= sentences.length){ stopAll(); clearWord(); setLive(-1); return; }
   var s = sentences[si];
   setLive(si);
-  centreSentence(si);
+  raiseSentence(si);
 
   var u = utter(s.text), got = false;
 
@@ -1082,7 +1123,7 @@ textEl.addEventListener("click", function(e){
       setLive(si);
       updateCount();
     }
-    centreSentence(si);
+    raiseSentence(si);
     return;
   }
 
@@ -1099,7 +1140,7 @@ textEl.addEventListener("click", function(e){
   lastI = i; lastTap = now;
   clearTimeout(hoverClear);
   setLive(si);
-  centreSentence(si);
+  raiseSentence(si);
 
   clearTimeout(pending);
   pending = setTimeout(function(){
